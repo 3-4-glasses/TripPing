@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "412321340776",
+    "project_id": "tripping-51afb",
+    "storage_bucket": "tripping-51afb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:412321340776:android:26fd90a0ba8da240280add",
+        "android_client_info": {
+          "package_name": "sixteeneyes.tripPing.apacsolchallenge"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmS3DjfbjwzCNUVteNSghQv58YpZ4FW2M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
