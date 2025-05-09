@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -51,6 +52,33 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
         // Navigate to the home screen (or wherever needed)
 
     } on FirebaseAuthException catch (e) {
+      setState(() {
+        errorMessage = e.message ?? "An error occurred during sign-in!";
+      });
+    }
+  }
+
+
+  Future<void> signInWithGoogle() async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication? googleAuth = await googleUser
+          ?.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth?.accessToken,
+        idToken: googleAuth?.idToken,
+      );
+
+      UserCredential userCred = await FirebaseAuth.instance
+          .signInWithCredential(credential);
+      User? user = userCred.user;
+      String? tokenId = await user?.getIdToken();
+    }on FirebaseAuthException catch (e) {
       setState(() {
         errorMessage = e.message ?? "An error occurred during sign-in!";
       });
@@ -137,7 +165,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  if (errorMessage != null)
+                  if (errorMessage != null) // Error message
                     Text(
                       errorMessage!,
                       style: TextStyle(color: Colors.red, fontSize: 14),
@@ -163,8 +191,6 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Google Login Button (as in your original code)
-                  // Add the appropriate logic for Google Login here
                   Center(
                     child: SizedBox(
                       width: 300,
