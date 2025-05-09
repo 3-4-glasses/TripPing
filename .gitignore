@@ -13,10 +13,10 @@ frontend/.swiftpm/
 frontend/migrate_working_dir/
 
 # IntelliJ related
-frontend/*.iml
-frontend/*.ipr
-frontend/*.iws
-frontend/.idea/
+*.iml
+*.ipr
+*.iws
+.idea/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -31,7 +31,7 @@ frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
 frontend/.pub-cache/
 frontend/.pub/
-frontend//build/
+frontend/build/
 
 # Symbolication related
 frontend/app.*.symbols
