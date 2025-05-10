@@ -1,0 +1,351 @@
+import dotenv from 'dotenv';
+import admin from 'firebase-admin';
+
+dotenv.config();
+
+
+/*
+Itinerary
+{
+  "date": "2025-05-12",
+  "activities": [
+    {
+      "from": "2025-05-12T08:00:00Z",
+      "to": "2025-05-12T09:00:00Z",
+      "title": "Breakfast at Cafe",
+      "details": "Enjoy a traditional breakfast at the local cafe.",
+      "location": { "latitude": 40.7128, "longitude": -74.0060 }
+    },
+    {
+      "from": "2025-05-12T10:00:00Z",
+      "to": "2025-05-12T12:00:00Z",
+      "title": "Visit the Museum",
+      "details": "Explore the history museum in the city center.",
+      "location": { "latitude": 40.7129, "longitude": -74.0070 }
+    }
+  ]
+}
+
+*/
+
+
+// // TODO implement this
+// interface Itinerary {
+//   id?: string; 
+//   from: Date;
+//   to: Date;
+//   title: string;
+//   details: string;
+//   location: admin.firestore.GeoPoint;
+// }
+
+
+// From flutter pass jsonEncode
+interface Trip{
+  id?: String,
+  from: admin.firestore.Timestamp,
+  to: admin.firestore.Timestamp,
+  expensesUsed: number,
+  expensesLimit: number,
+  setExpenses: Record<string,number>,
+  variableExpenses: Record<string,number>,
+  items: String[]
+}
+
+interface Activity {
+  from: Date;
+  to: Date;
+  title: string;
+  details: string;
+  location: admin.firestore.GeoPoint;
+}
+
+interface Itinerary {
+  id?: string;
+  date: Date;  // Date of the itinerary
+  activities: Activity[];  // List of activities within this itinerary
+}
+
+
+const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS as string);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+
+
+async function createTrip(userId: string, tripData: any, itineraries: Itinerary[]) {
+  try {
+    const tripRef = db.collection("users").doc(userId).collection("trips").doc();
+    await tripRef.set(tripData); // Create the trip
+    
+    // Create a batch to add multiple itineraries to the trip
+    const batch = db.batch();
+    itineraries.forEach(itinerary => {
+      const itineraryRef = tripRef.collection("itinerary").doc(); // Create a new itinerary doc
+      const itineraryDate=new Date(itinerary.date);
+      const activites = itinerary.activities.map((activity: any) => ({
+        from: new Date(activity.from),
+        to: new Date(activity.to),
+        title: activity.title,
+        details: activity.details,
+        location: new admin.firestore.GeoPoint(activity.location.latitude, activity.location.longitude),}
+      ));
+      
+      const itineraryObj = {
+        date:itineraryDate,
+        activities:activites
+      };
+
+      batch.set(itineraryRef, itineraryObj); // Add each itinerary to the batch
+    });
+
+    // Commit the batch to Firestore
+    await batch.commit();
+
+    return tripRef.id; // Return the trip ID
+  } catch (error) {
+    console.error("Error creating trip:", error);
+  }
+}
+
+// Get all itinerary IDs for a given trip
+async function getItineraryIds(userId: string, tripId: string) {
+  try {
+    const tripRef = await db
+      .collection("users")
+      .doc(userId)
+      .collection("trips")
+      .doc(tripId)
+      .collection("itinerary")
+      .get(); 
+
+    const itineraries: string[] = [];
+
+    tripRef.forEach((doc) => {
+      itineraries.push(doc.id); // Collect the document IDs as itinerary IDs
+    });
+
+    return itineraries;
+  } catch (error) {
+    console.error("Error getting itineraries:", error);
+  }
+}
+
+// Get all itineraries for a specific trip
+async function getAllItinerary(userId: string, tripId: string):Promise<Itinerary[]> {
+  try {
+    const tripSnap = await db
+      .collection("users")
+      .doc(userId)
+      .collection("trips")
+      .doc(tripId)
+      .collection("itinerary")
+      .get(); // Fetch all itineraries for the trip
+
+    let res: Itinerary[] = [];
+    tripSnap.forEach((doc) => {
+      const data = doc.data();
+      res.push({
+        id: doc.id, // The itinerary ID (document ID)
+        date: data.date.toDate(),
+        activities:data.activities
+      });
+    });
+
+    return res; // Return all itineraries as an array
+  } catch (error) {
+    console.error("Error fetching itineraries:", error);
+    return []; 
+  }
+}
+
+async function getAllTrip(userId: string) {
+  try {
+    const tripSnap = await db.collection("users").doc(userId).collection("trips").get();
+    let AllTrip : Trip[] = [];
+    tripSnap.forEach((doc)=>{
+      const data = doc.data();
+      AllTrip.push({
+        id:doc.id,
+        from:data.from,
+        to:data.to,
+        expensesUsed:data.expensesUsed,
+        expensesLimit:data.expensesLimit,
+        setExpenses:data.setExpenses || {},
+        variableExpenses:data.variableExpenses || {},
+        items:data.items || []
+      })
+    })
+    return AllTrip; 
+  } catch (error) {
+    console.error("Error getting trips:", error);
+  }
+}
+
+
+
+async function addActivity(
+  userId: string,
+  activityAddition: Activity,
+  tripId: string,
+  itineraryId: string
+) {
+  try{
+    const itineraryRef = await db
+      .collection("users")
+      .doc(userId)
+      .collection("trips")
+      .doc(tripId)
+      .collection("itinerary")
+      .doc(itineraryId);
+    const itinerarySnap=await itineraryRef.get();
+    const data = itinerarySnap.data();
+    const existingActivities = data!.activities || [];
+    const updatedActivities = [...existingActivities, activityAddition];
+    await itineraryRef.update({ activities: updatedActivities });
+  }catch(error){
+
+  }
+}
+
+async function addItems(userId: string, tripId:string, item:string){
+  try{
+    const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+    const tripSnap = await tripRef.get();
+    const data = tripSnap.data();
+    const itemDb:string[] = data!.items || [];
+    if(itemDb.indexOf(item) === -1){
+      itemDb.push(item);
+    }
+    await tripRef.set({ items:itemDb},{ merge: true });
+  }catch(error){
+
+  }
+}
+
+async function deleteItem(userId:string, tripId:string,item:string){
+  try{
+    const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+    const tripSnap = await tripRef.get();
+    const data = tripSnap.data();
+    const itemDb:string[] = data!.items || [];
+    if(itemDb.indexOf(item) > -1){
+        const updatedItems = itemDb.filter(itemArr => itemArr !== item);
+        await tripRef.set({ items: updatedItems }, { merge: true });    
+    }
+  }catch(error){
+
+  }
+}
+
+async function incrementExpenses(userId:string,tripId:string,amount:number){
+    try{
+        const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+        const tripSnap = await tripRef.get();
+        const data = tripSnap.data();
+        let expenses:number = data!.expensesUsed;
+        expenses+=amount;
+        await tripRef.set({ expensesUsed:expenses},{ merge: true });
+    }catch(error){
+
+    }
+}
+
+async function deleteEvent(userId:string,tripId:string,itineraryId:string,activity:Activity){
+    try{
+        const itineraryRef = await db.collection("users").doc(userId).collection("trips").doc(tripId).collection("itinerary").doc(itineraryId);
+        const itinerarySnap = await itineraryRef.get();
+        const data = itinerarySnap.data();
+        let eventsDay:Activity[] = data!.activities;
+        const updatedActivities = eventsDay.filter((activityDay)=>{
+            return !(activityDay.details===activity.details && activityDay.title===activity.title && 
+                new Date(activityDay.from).getTime() === new Date(activity.from).getTime()
+                && new Date(activityDay.to)===new Date(activity.to)
+                && activityDay.location.latitude === activity.location.latitude && activityDay.location.longitude === activity.location.longitude)
+        });
+        await itineraryRef.update({ activities: updatedActivities });
+    }catch(error){
+
+    }
+}
+
+
+async function addVariableExpenses(userId: string, tripId: string, item: any) {
+  try {
+    const tripRef = db.collection("users").doc(userId).collection("trips").doc(tripId);
+    const tripSnap = await tripRef.get();
+
+    if (!tripSnap.exists) {
+      throw new Error("Trip not found");
+    }
+
+    const data = tripSnap.data();
+    let variableExpenses: Record<string, number> = data?.variableExpenses || {};
+
+    if (!variableExpenses[item.name]) {
+      variableExpenses[item.name] = item.value;
+      await incrementExpenses(userId,tripId,item.value);
+    }
+
+    await tripRef.set({ variableExpenses:variableExpenses }, { merge: true });
+  } catch (error) {
+    
+  }
+}
+
+async function setBudget(userId:string,tripId:string,amount:number){
+  try{
+    const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+    await tripRef.set({ expensesUsed:amount},{ merge: true });
+  }catch(error){
+
+  }
+}
+
+
+
+// async function decrementExpenses(userId:string,tripId:string,amount:number){
+//     try{
+//     const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+//     const tripSnap = await tripRef.get();
+//     const data = tripSnap.data();
+//     let expenses:number = data!.expensesUsed;
+//     expenses-=amount;
+//     await tripRef.set({ expensesUsed:expenses},{ merge: true });
+//   }catch(error){
+
+//   }
+// }
+
+
+
+// Not needed i think
+// async function addSetExpenses(userId: string, tripId: string, item: any) {
+//   try {
+//     const tripRef = db.collection("users").doc(userId).collection("trips").doc(tripId);
+//     const tripSnap = await tripRef.get();
+
+//     if (!tripSnap.exists) {
+//       throw new Error("Trip not found");
+//     }
+
+//     const data = tripSnap.data();
+//     let setExpenses: Record<string, number> = data?.setExpenses || {};
+
+//     if (!setExpenses[item.name]) {
+//       setExpenses[item.name] = item.value;
+//       incrementExpenses(userId,tripId,item.value);
+//     }
+
+//     await tripRef.set({ setExpenses }, { merge: true });
+//   } catch (error) {
+    
+//   }
+// }
+
+
+
