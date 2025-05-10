@@ -2,7 +2,6 @@ import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:flutter/material.dart';
 import 'pages/event_selection.dart';
 import 'pages/add_expenses.dart';
-import 'pages/add_item.dart';
 import 'pages/calendar_edit.dart';
 import 'pages/expenses.dart';
 import 'pages/general_question.dart';
@@ -28,8 +27,7 @@ class WidgetTree extends StatelessWidget {
         '/personalized_questionnaires': (context) => PersonalizedQuestion(),
         '/calendar': (context) => const Calendar(),
         '/calendar_edit': (context) => const CalendarEditMode(),
-        '/reminders': (context) => const Reminders(),
-        '/add_item': (context) => const AddItem(),
+        '/reminders': (context) => const RemindersPage(),
         '/expenses_trip': (context) => const Expenses(),
         '/add_expenses': (context) => const AddExpenses(),
         '/map': (context) => const MapPage(),

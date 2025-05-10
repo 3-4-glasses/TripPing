@@ -177,7 +177,7 @@ class _CalendarState extends State<Calendar> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const Reminders()),
+                      MaterialPageRoute(builder: (context) => const RemindersPage()),
                     );
                   },
                   icon: const Icon(Icons.notifications),
