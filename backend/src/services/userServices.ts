@@ -5,9 +5,6 @@ import admin from 'firebase-admin';
 // Convert to express functions
 dotenv.config();
 
-
-  
-
 const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS as string);
 
 admin.initializeApp({
@@ -16,55 +13,58 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-async function registerUser(user_name: string, email: string, password: string): Promise<void> {
+async function registerUser(user_name: string, email: string, password: string): Promise<string> {
+
   try {
     const userRecord = await admin.auth().createUser({
       email,
       password,
       displayName: user_name,
     });
-
-    console.log('User created successfully:', userRecord.uid);
+    return userRecord.uid;
   } catch (error) {
-    console.error('Error creating user:', error);
-
+    console.log(`error ${error}`);
+    console.log(`error on registerUser args ${user_name}, email ${email}, password ${password}`)
+    throw error;
   }
 }
 
 
-async function verifyToken(tokenReq) { 
-    const token = tokenReq.headers.authorization?.split(' ')[1]; 
-  
-    if (!token) {
-    console.log("No token provided")
-      return;
-    }
-  
-    // Use Promise-based verification instead of async/await
-    admin.auth().verifyIdToken(token)
-      .then((decodedToken) => {
-        console.log('Decoded token:', decodedToken);
-  
-        const userId = decodedToken.uid;
-        const email = decodedToken.email;
-
-        
-      })
-      .catch((error) => {
-        console.error('Error verifying token:', error);
-      });
-  }
-  
-// Initialize user in Firestore
-async function initUser(userId: string, userName: string) {
+async function verifyToken(tokenReq: any): Promise<{ uid: string; email: string, name: string } | null> {
   try {
-    await db.collection('users').doc(userId).set({
-      name: userName,
-    });
-    console.log('User initialized successfully');
+    const authHeader = tokenReq.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      console.log("No token provided");
+      return null;
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    console.log('Decoded token:', decodedToken);
+
+    return {
+      uid: decodedToken.uid,
+      email: decodedToken.email || '',
+      name: decodedToken.name || ''
+    }; 
   } catch (error) {
-    console.error('Error initializing user:', error);
+    console.error('Error verifying token:', error);
+    throw error; 
   }
 }
+// Initialize user in Firestore
+async function initUser(userId: string, userName: string): Promise<void> {
+    try {
+        await db.collection('users').doc(userId).set({
+        name: userName,
+        });
+        console.log('User initialized successfully');
+    } catch (error) {
+        console.log(`error on initUser ${userId} ${userName}`);
+        console.log(`Error: ${error}`);
+        throw error;
+    }
+}
 
-
+export {initUser,registerUser,verifyToken};

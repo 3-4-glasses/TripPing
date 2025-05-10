@@ -14,12 +14,12 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = "1.8"
     }
 
     defaultConfig {
@@ -28,7 +28,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35 // Explicitly set targetSdk to 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -36,12 +36,20 @@ android {
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Signing with the debug keys for now, so flutter run --release works.
             signingConfig = signingConfigs.debug
         }
     }
 }
 
+// Correct way to add compiler arguments:
+android.applicationVariants.all { variant ->
+    variant.javaCompileProvider.get().options.compilerArgs.addAll([
+            '-Xlint:-options',
+            '-Xlint:deprecation'
+    ])
+}
+
 flutter {
-    source = "../.."
+    source = "../.."
 }

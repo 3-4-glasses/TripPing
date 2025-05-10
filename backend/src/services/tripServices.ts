@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
+import {Trip,Itinerary,Activity} from '../struct';
 
 dotenv.config();
 
@@ -41,30 +42,6 @@ Itinerary
 
 
 // From flutter pass jsonEncode
-interface Trip{
-  id?: String,
-  from: admin.firestore.Timestamp,
-  to: admin.firestore.Timestamp,
-  expensesUsed: number,
-  expensesLimit: number,
-  setExpenses: Record<string,number>,
-  variableExpenses: Record<string,number>,
-  items: String[]
-}
-
-interface Activity {
-  from: Date;
-  to: Date;
-  title: string;
-  details: string;
-  location: admin.firestore.GeoPoint;
-}
-
-interface Itinerary {
-  id?: string;
-  date: Date;  // Date of the itinerary
-  activities: Activity[];  // List of activities within this itinerary
-}
 
 
 const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS as string);
@@ -77,94 +54,103 @@ const db = admin.firestore();
 
 
 
-async function createTrip(userId: string, tripData: any, itineraries: Itinerary[]) {
-  try {
-    const tripRef = db.collection("users").doc(userId).collection("trips").doc();
-    await tripRef.set(tripData); // Create the trip
-    
-    // Create a batch to add multiple itineraries to the trip
-    const batch = db.batch();
-    itineraries.forEach(itinerary => {
-      const itineraryRef = tripRef.collection("itinerary").doc(); // Create a new itinerary doc
-      const itineraryDate=new Date(itinerary.date);
-      const activites = itinerary.activities.map((activity: any) => ({
-        from: new Date(activity.from),
-        to: new Date(activity.to),
-        title: activity.title,
-        details: activity.details,
-        location: new admin.firestore.GeoPoint(activity.location.latitude, activity.location.longitude),}
-      ));
-      
-      const itineraryObj = {
-        date:itineraryDate,
-        activities:activites
-      };
+async function createTrip(userId: string, tripData: any, itineraries: Itinerary[]): Promise<string>  {
+    console.log(`error on createTrip, args userId ${userId} tripData ${tripData} itenerary ${itineraries}`);
+    try {
+        const tripRef = db.collection("users").doc(userId).collection("trips").doc();
+        await tripRef.set(tripData); // Create the trip
+        
+        // Create a batch to add multiple itineraries to the trip
+        const batch = db.batch();
+        itineraries.forEach(itinerary => {
+        const itineraryRef = tripRef.collection("itinerary").doc(); // Create a new itinerary doc
+        const itineraryDate=new Date(itinerary.date);
+        const activites = itinerary.activities.map((activity: any) => ({
+            from: new Date(activity.from),
+            to: new Date(activity.to),
+            title: activity.title,
+            details: activity.details,
+            location: new admin.firestore.GeoPoint(activity.location.latitude, activity.location.longitude),}
+        ));
+        
+        const itineraryObj = {
+            date:itineraryDate,
+            activities:activites
+        };
 
-      batch.set(itineraryRef, itineraryObj); // Add each itinerary to the batch
-    });
+        batch.set(itineraryRef, itineraryObj); // Add each itinerary to the batch
+        });
 
-    // Commit the batch to Firestore
-    await batch.commit();
+        // Commit the batch to Firestore
+        await batch.commit();
 
-    return tripRef.id; // Return the trip ID
-  } catch (error) {
-    console.error("Error creating trip:", error);
-  }
+        return tripRef.id; // Return the trip ID
+    } catch (error) {
+        console.log(`error on createTrip, args userId ${userId} tripData ${tripData} itenerary ${itineraries}`);
+        console.log(`error ${error}`);
+        throw error
+    }
 }
 
 // Get all itinerary IDs for a given trip
-async function getItineraryIds(userId: string, tripId: string) {
-  try {
-    const tripRef = await db
-      .collection("users")
-      .doc(userId)
-      .collection("trips")
-      .doc(tripId)
-      .collection("itinerary")
-      .get(); 
+async function getItineraryIds(userId: string, tripId: string): Promise<string[]> {
+    console.log(`getItineraryIds called, args userId ${userId} tripId ${tripId}`);
+    try {
+        const tripRef = await db
+        .collection("users")
+        .doc(userId)
+        .collection("trips")
+        .doc(tripId)
+        .collection("itinerary")
+        .get(); 
 
-    const itineraries: string[] = [];
+        const itineraries: string[] = [];
 
-    tripRef.forEach((doc) => {
-      itineraries.push(doc.id); // Collect the document IDs as itinerary IDs
-    });
+        tripRef.forEach((doc) => {
+        itineraries.push(doc.id); // Collect the document IDs as itinerary IDs
+        });
 
-    return itineraries;
-  } catch (error) {
-    console.error("Error getting itineraries:", error);
-  }
+        return itineraries;
+    } catch (error) {
+        console.log(`error on getItineraryIds, args userId ${userId} tripId ${tripId}`);
+        console.log(`error ${error}`);
+        throw error
+    }
 }
 
 // Get all itineraries for a specific trip
 async function getAllItinerary(userId: string, tripId: string):Promise<Itinerary[]> {
-  try {
+    console.log(`getAllItinerary called, args userId ${userId} tripId ${tripId}`);
+    try {
     const tripSnap = await db
-      .collection("users")
-      .doc(userId)
-      .collection("trips")
-      .doc(tripId)
-      .collection("itinerary")
-      .get(); // Fetch all itineraries for the trip
+        .collection("users")
+        .doc(userId)
+        .collection("trips")
+        .doc(tripId)
+        .collection("itinerary")
+        .get(); // Fetch all itineraries for the trip
 
     let res: Itinerary[] = [];
     tripSnap.forEach((doc) => {
-      const data = doc.data();
-      res.push({
+        const data = doc.data();
+        res.push({
         id: doc.id, // The itinerary ID (document ID)
         date: data.date.toDate(),
         activities:data.activities
-      });
+        });
     });
 
     return res; // Return all itineraries as an array
-  } catch (error) {
-    console.error("Error fetching itineraries:", error);
-    return []; 
-  }
+    } catch (error) {
+        console.log(`error on getAllItinerary, args userId ${userId} tripId ${tripId}`);
+        console.log(`error ${error}`);
+        throw error
+    }
 }
 
-async function getAllTrip(userId: string) {
+async function getAllTrip(userId: string): Promise<Trip[]> {
   try {
+    console.log(`getAllTrip called, args userId ${userId}`);
     const tripSnap = await db.collection("users").doc(userId).collection("trips").get();
     let AllTrip : Trip[] = [];
     tripSnap.forEach((doc)=>{
@@ -182,67 +168,79 @@ async function getAllTrip(userId: string) {
     })
     return AllTrip; 
   } catch (error) {
-    console.error("Error getting trips:", error);
+    console.log(`error on getAllTrip, args userId ${userId}`);
+    console.log(`error ${error}`);
+    throw error
   }
 }
 
 
 
-async function addActivity(
+async function addActivity (
   userId: string,
   activityAddition: Activity,
   tripId: string,
   itineraryId: string
-) {
-  try{
-    const itineraryRef = await db
-      .collection("users")
-      .doc(userId)
-      .collection("trips")
-      .doc(tripId)
-      .collection("itinerary")
-      .doc(itineraryId);
-    const itinerarySnap=await itineraryRef.get();
-    const data = itinerarySnap.data();
-    const existingActivities = data!.activities || [];
-    const updatedActivities = [...existingActivities, activityAddition];
-    await itineraryRef.update({ activities: updatedActivities });
-  }catch(error){
-
-  }
-}
-
-async function addItems(userId: string, tripId:string, item:string){
-  try{
-    const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
-    const tripSnap = await tripRef.get();
-    const data = tripSnap.data();
-    const itemDb:string[] = data!.items || [];
-    if(itemDb.indexOf(item) === -1){
-      itemDb.push(item);
+) : Promise<void>{
+    console.log(`addActivity called, args userId ${userId} activityAddition ${activityAddition} tripId ${tripId} itineraryId ${itineraryId}`);
+    try{
+        const itineraryRef = await db
+        .collection("users")
+        .doc(userId)
+        .collection("trips")
+        .doc(tripId)
+        .collection("itinerary")
+        .doc(itineraryId);
+        const itinerarySnap=await itineraryRef.get();
+        const data = itinerarySnap.data();
+        const existingActivities = data!.activities || [];
+        const updatedActivities = [...existingActivities, activityAddition];
+        await itineraryRef.update({ activities: updatedActivities });
+    }catch(error){
+        console.log(`error on addActivity, args userId ${userId} activityAddition ${activityAddition} tripId ${tripId} itineraryId ${itineraryId}`);
+        console.log(`error ${error}`);
+        throw error
     }
-    await tripRef.set({ items:itemDb},{ merge: true });
-  }catch(error){
-
-  }
 }
 
-async function deleteItem(userId:string, tripId:string,item:string){
-  try{
-    const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
-    const tripSnap = await tripRef.get();
-    const data = tripSnap.data();
-    const itemDb:string[] = data!.items || [];
-    if(itemDb.indexOf(item) > -1){
-        const updatedItems = itemDb.filter(itemArr => itemArr !== item);
-        await tripRef.set({ items: updatedItems }, { merge: true });    
+async function addItems(userId: string, tripId:string, item:string): Promise<void>{
+    console.log(`addItems called, args userId ${userId} tripId ${tripId} item ${item}`);
+    try{
+        const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+        const tripSnap = await tripRef.get();
+        const data = tripSnap.data();
+        const itemDb:string[] = data!.items || [];
+        if(itemDb.indexOf(item) === -1){
+        itemDb.push(item);
+        }
+        await tripRef.set({ items:itemDb},{ merge: true });
+    }catch(error){
+        console.log(`error on addItems, args userId ${userId} tripId ${tripId} item ${item}`);
+        console.log(`error ${error}`);
+        throw error
     }
-  }catch(error){
-
-  }
 }
 
-async function incrementExpenses(userId:string,tripId:string,amount:number){
+async function deleteItem(userId:string, tripId:string,item:string): Promise<void>{
+    console.log(`deleteItem called, args userId ${userId} tripId ${tripId} item ${item}`);
+    try{
+        const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+        const tripSnap = await tripRef.get();
+        const data = tripSnap.data();
+        const itemDb:string[] = data!.items || [];
+        if(itemDb.indexOf(item) > -1){
+            const updatedItems = itemDb.filter(itemArr => itemArr !== item);
+            await tripRef.set({ items: updatedItems }, { merge: true });    
+        }
+    }catch(error){
+        console.log(`error on deleteItem, args userId ${userId} tripId ${tripId} item ${item}`);
+        console.log(`error ${error}`);
+        throw error
+    }
+}
+
+async function incrementExpenses(userId:string,tripId:string,amount:number): Promise<void>{
+    console.log(`incrementExpenses called, args userId ${userId} tripId ${tripId} amount ${amount}`);
     try{
         const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
         const tripSnap = await tripRef.get();
@@ -251,11 +249,14 @@ async function incrementExpenses(userId:string,tripId:string,amount:number){
         expenses+=amount;
         await tripRef.set({ expensesUsed:expenses},{ merge: true });
     }catch(error){
-
+        console.log(`error on incrementExpenses, args userId ${userId} tripId ${tripId} amount ${amount}`);
+        console.log(`error ${error}`);
+        throw error
     }
 }
 
-async function deleteEvent(userId:string,tripId:string,itineraryId:string,activity:Activity){
+async function deleteEvent(userId:string,tripId:string,itineraryId:string,activity:Activity): Promise<void> {
+    console.log(`deleteEvent called, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${activity}`);
     try{
         const itineraryRef = await db.collection("users").doc(userId).collection("trips").doc(tripId).collection("itinerary").doc(itineraryId);
         const itinerarySnap = await itineraryRef.get();
@@ -269,44 +270,55 @@ async function deleteEvent(userId:string,tripId:string,itineraryId:string,activi
         });
         await itineraryRef.update({ activities: updatedActivities });
     }catch(error){
-
+        console.log(`error on deleteEvent, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${activity}`);
+        console.log(`error ${error}`);
+        throw error
     }
 }
 
 
-async function addVariableExpenses(userId: string, tripId: string, item: any) {
-  try {
-    const tripRef = db.collection("users").doc(userId).collection("trips").doc(tripId);
-    const tripSnap = await tripRef.get();
+async function addVariableExpenses(userId: string, tripId: string, item: any): Promise<void> {
+    console.log(`addVariableExpenses called, args userId ${userId} tripId ${tripId} item ${item}`);
+    try {
+        const tripRef = db.collection("users").doc(userId).collection("trips").doc(tripId);
+        const tripSnap = await tripRef.get();
 
-    if (!tripSnap.exists) {
-      throw new Error("Trip not found");
+        if (!tripSnap.exists) {
+        throw new Error("Trip not found");
+        }
+
+        const data = tripSnap.data();
+        let variableExpenses: Record<string, number> = data?.variableExpenses || {};
+
+        if (!variableExpenses[item.name]) {
+        variableExpenses[item.name] = item.value;
+        await incrementExpenses(userId,tripId,item.value);
+        }
+
+        await tripRef.set({ variableExpenses:variableExpenses }, { merge: true });
+    } catch (error) {
+        console.log(`error on addVariableExpenses, args userId ${userId} tripId ${tripId} item ${item}`);
+        console.log(`error ${error}`);
+        throw error
     }
-
-    const data = tripSnap.data();
-    let variableExpenses: Record<string, number> = data?.variableExpenses || {};
-
-    if (!variableExpenses[item.name]) {
-      variableExpenses[item.name] = item.value;
-      await incrementExpenses(userId,tripId,item.value);
-    }
-
-    await tripRef.set({ variableExpenses:variableExpenses }, { merge: true });
-  } catch (error) {
-    
-  }
 }
 
-async function setBudget(userId:string,tripId:string,amount:number){
-  try{
-    const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
-    await tripRef.set({ expensesUsed:amount},{ merge: true });
-  }catch(error){
-
-  }
+async function setBudget(userId:string,tripId:string,amount:number): Promise<void>{
+    console.log(`setBudget called, args userId ${userId} tripId ${tripId} amount ${amount}`);
+    try{
+        const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
+        await tripRef.set({ expensesUsed:amount},{ merge: true });
+    }catch(error){
+        console.log(`error on addItems, args userId ${userId} tripId ${tripId} amount ${amount}`);
+        console.log(`error ${error}`);
+        throw error
+    }
 }
 
-
+export {createTrip, getItineraryIds, 
+    getAllItinerary, getAllTrip, addActivity, 
+    addItems, deleteItem, incrementExpenses, 
+    deleteEvent, addVariableExpenses, setBudget} 
 
 // async function decrementExpenses(userId:string,tripId:string,amount:number){
 //     try{
