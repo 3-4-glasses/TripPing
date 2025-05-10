@@ -1,5 +1,5 @@
+import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:flutter/material.dart';
-import 'package:google_solution_challenge/pages/calendar.dart';
 import 'pages/event_selection.dart';
 import 'pages/add_expenses.dart';
 import 'pages/add_item.dart';

@@ -1,5 +1,5 @@
+import 'package:apacsolchallenge/widget_tree.dart';
 import 'package:flutter/material.dart';
-import 'package:google_solution_challenge/widget_tree.dart';
 
 void main() {
   runApp(const MyApp());

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:google_solution_challenge/pages/calendar.dart';
-import 'package:google_solution_challenge/utilities/calendar_utils.dart';
+import 'package:apacsolchallenge/pages/calendar.dart';
+import 'package:apacsolchallenge/utilities/calendar_utils.dart';
 
 class CalendarEditMode extends StatefulWidget {
   final DateTime? initialSelectedDay;

@@ -1,7 +1,7 @@
 // CLASS USED TO STORE REUSED FUNCTIONS IN CALENDAR UIs.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:google_solution_challenge/pages/calendar.dart';
+import 'package:apacsolchallenge/pages/calendar.dart';
 
 class CalendarUtils {
     static String formatTimeOfDay(TimeOfDay time) {

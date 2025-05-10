@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_solution_challenge/pages/calendar.dart';
-import 'package:google_solution_challenge/pages/general_question.dart';
-import 'package:google_solution_challenge/pages/main_page.dart';
+import 'package:apacsolchallenge/pages/calendar.dart';
+import 'package:apacsolchallenge/pages/general_question.dart';
+import 'package:apacsolchallenge/pages/main_page.dart';
 
 class EventSelection extends StatelessWidget {
   const EventSelection({super.key});

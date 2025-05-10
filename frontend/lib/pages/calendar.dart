@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_solution_challenge/pages/calendar_edit.dart';
-import 'package:google_solution_challenge/pages/reminders.dart';
+import 'package:apacsolchallenge/pages/calendar_edit.dart';
+import 'package:apacsolchallenge/pages/reminders.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import 'package:google_solution_challenge/utilities/calendar_utils.dart';
+import 'package:apacsolchallenge/utilities/calendar_utils.dart';
 
 class Calendar extends StatefulWidget {
   const Calendar({super.key});
