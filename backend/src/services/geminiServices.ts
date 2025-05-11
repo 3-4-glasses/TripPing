@@ -7,7 +7,7 @@ const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash-lite" }); // fuck change this idk what model to use
 
-async function validateInput(input: string){
+async function validateInput(input: string): Promise<boolean>{
   const systemInst = `  
     Your task is to return whether the input string contains the following fields, do not offer explanations and only return true or false:
     Dates
@@ -25,7 +25,7 @@ async function validateInput(input: string){
   return text.trim().toLowerCase() === 'true';
 }
 
-async function extractItienaryFeatures(input: string){
+async function extractItienaryFeatures(input: string): Promise<string> {
   const systemInst = `
     You are a helpful itinerary planning assistant. Your task is to extract structured information from a free-text travel description written by a user.
     The user's message may contain destination, travel dates, daily plans, activity preferences, time references, and miscellaneous instructions.
@@ -81,7 +81,7 @@ async function cleanJSON(parsed: Record<string, any>){
 
   return [placeJson, miscellaneousJson];
 }
-async function GetQuery(destination:string, departureTime:string, returnTime:string, numpeople: number, preferredTransportation:string[], cleanJSON: string){
+async function getQuery(destination:string, departureTime:string, returnTime:string, numpeople: number, preferredTransportation:string[], cleanJSON: string): Promise<string>{
   const systemInst =
   `
   You are an assistant generating Google Places Text Search API query objects.
@@ -135,7 +135,7 @@ Omit a query if location or intent is unclear
   const text = await response.text();
   return text.trim();
 }
-async function ProcessAI(placeJSON: string, miscellaneousJSON: string){
+async function processAI(placeJSON: string, miscellaneousJSON: string){ // TODO later
   const systemInst=`
   You are a smart travel assistant that creates detailed, well-paced, daily travel itineraries.
   Your job is to organize both user-specified activities (miscellaneous) and places returned from the Google Places API into a structured, optimized itinerary.
@@ -225,3 +225,5 @@ async function ProcessAI(placeJSON: string, miscellaneousJSON: string){
   // await writeToDb(planned); // Store planned itinerary
   //return planned;
 }
+
+export {validateInput, extractItienaryFeatures, cleanJSON, getQuery, processAI}

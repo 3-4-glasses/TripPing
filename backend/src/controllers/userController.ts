@@ -5,7 +5,7 @@ const registerUser = async (req: Request, res: Response):Promise<any>=>{
   try {
     const { user_name, email, password } = req.body;
     const userId = await userService.registerUser(user_name, email, password);
-    userService.initUser(userId,user_name);
+    await userService.initUser(userId,user_name);
     return res.status(201).json({ status: true, userId:userId });
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message || error});
