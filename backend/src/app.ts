@@ -8,6 +8,7 @@ const app: Express = express();
 const port:number = 3000;
 
 app.use(cors());
+app.use(express.json()); 
 
 app.listen(port, () => {
   console.log("Server running on port 3000");
