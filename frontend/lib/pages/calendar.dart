@@ -27,6 +27,15 @@ class _CalendarState extends State<Calendar> {
       notes: 'Remember to book tickets in advance',
     ),
     Event(
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      timeStart: const TimeOfDay(hour: 12, minute: 00),
+      timeEnd: const TimeOfDay(hour: 13, minute: 30),
+      title: 'Visit a Bakery',
+      location: 'Paris',
+      notes: 'Get some croissants!'
+    ),
+    Event(
       startDate: DateTime.now().add(const Duration(days: 2)),
       endDate: DateTime.now().add(const Duration(days: 2)),
       timeStart: const TimeOfDay(hour: 14, minute: 0),
@@ -52,15 +61,20 @@ class _CalendarState extends State<Calendar> {
   @override
   void initState() {
     super.initState();
+    // Initializes the current day.
+    // Defaults the selectedDay as today and the events for today.
     _focusedDay = DateTime.now();
     _selectedDay = _focusedDay;
     _selectedEvents = CalendarUtils.getEventsForDay(_events, _selectedDay!);
   }
 
   void _handleEditResult(List<Event>? updatedEvents) {
+    // Triggered after user comes back from the CalendarEditMode page.
+
+    // Checks whether there are new events added.
     if (updatedEvents != null) {
       setState(() {
-        _events = updatedEvents;
+        _events = updatedEvents; // 
         _selectedEvents = CalendarUtils.getEventsForDay(_events, _selectedDay ?? _focusedDay);
       });
     }
@@ -215,7 +229,9 @@ class _CalendarState extends State<Calendar> {
     );
   }
 
+  // Builds the list of events for a single day. INPUT: _selectedEvents
   Widget _buildEventList() {
+    // If the _selectedDay has no events (_selectedEvents is empty)
     if (_selectedEvents.isEmpty) {
       return const Center(
         child: Text(
@@ -228,6 +244,7 @@ class _CalendarState extends State<Calendar> {
       );
     }
 
+    // There are events in _selectedDay
     return ListView.builder(
       itemCount: _selectedEvents.length,
       itemBuilder: (context, index) {
@@ -332,6 +349,7 @@ class _CalendarState extends State<Calendar> {
   }
 }
 
+// Stores details of an event.
 class Event {
   final DateTime startDate;
   final DateTime endDate;

@@ -5,6 +5,8 @@ import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:apacsolchallenge/utilities/calendar_utils.dart';
 
 class CalendarEditMode extends StatefulWidget {
+  // Needs the _selectedDay and the events list from Calendar page
+  // Could be null and not required, in case of the selectedDay having no available events
   final DateTime? initialSelectedDay;
   final List<Event> events;
 
@@ -15,6 +17,7 @@ class CalendarEditMode extends StatefulWidget {
 }
 
 class _CalendarEditModeState extends State<CalendarEditMode> {
+  // Initialize Calendar states
   CalendarFormat _calendarFormat = CalendarFormat.month;
   late DateTime _focusedDay;
   DateTime? _selectedDay;
