@@ -10,7 +10,7 @@ const validateInput = async (req: Request, res: Response):Promise<any>=>{
     return res.status(500).json({ status: false, error: error.message || error});
   }
 }
- const handleItinerary = async (req: Request, res: Response): Promise<Response> => {
+ const handleItinerary = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
       input,
@@ -53,3 +53,5 @@ const validateInput = async (req: Request, res: Response):Promise<any>=>{
     return res.status(500).json({ status: false, error: error.message || error });
   }
 };
+
+export {validateInput, handleItinerary}
