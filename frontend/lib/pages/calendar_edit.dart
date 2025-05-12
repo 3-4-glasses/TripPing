@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:apacsolchallenge/utilities/calendar_utils.dart';
+import 'package:apacsolchallenge/pages/calendar.dart';
+import '../data/global_trip_data.dart';
+import '../data/trip_data.dart';
 
 class CalendarEditMode extends StatefulWidget {
-  // Needs the _selectedDay and the events list from Calendar page
-  // Could be null and not required, in case of the selectedDay having no available events
   final DateTime? initialSelectedDay;
   final List<Event> events;
+  final String tripId;
 
-  const CalendarEditMode({super.key, this.initialSelectedDay, this.events = const []});
+  const CalendarEditMode(
+      {super.key, this.initialSelectedDay, this.events = const [], required this.tripId});
 
   @override
   State<CalendarEditMode> createState() => _CalendarEditModeState();
@@ -23,16 +25,17 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
   DateTime? _selectedDay;
   late List<Event> _allEvents;
   List<Event> _selectedEvents = [];
+  late Trip _trip;
 
-  // State for new event input
-  final TextEditingController _newEventTitleController = TextEditingController();
-  DateTime? _newEventStartDate;
-  DateTime? _newEventEndDate;
-  TimeOfDay? _newEventStartTime;
-  TimeOfDay? _newEventEndTime;
-  final TextEditingController _newEventLocationController = TextEditingController();
-  final TextEditingController _newEventNotesController = TextEditingController();
+  // State for new/edited event input
+  final TextEditingController _eventTitleController = TextEditingController();
+  DateTime? _eventStartDate;
+  DateTime? _eventEndDate;
+  TimeOfDay? _eventStartTime;
+  TimeOfDay? _eventEndTime;
+  final TextEditingController _eventNotesController = TextEditingController();
   bool _isMultiDayEvent = false;
+  int? _editingIndex; // Track the index of the event being edited, null for new events
 
   // State for AI assistance. NOT USED YET.
   final TextEditingController _aiRequestController = TextEditingController();
@@ -44,46 +47,55 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     _focusedDay = widget.initialSelectedDay ?? DateTime.now();
     _selectedDay = _focusedDay;
     _allEvents = List.from(widget.events);
-    _selectedEvents = CalendarUtils.getEventsForDay(_allEvents ,_selectedDay!);
-    
+    _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);
+
     // Initialize start date for new event form
-    _newEventStartDate = _selectedDay;
-    _newEventEndDate = _selectedDay;
+    _eventStartDate = _selectedDay;
+    _eventEndDate = _selectedDay;
+
+    _trip = GlobalTripData.instance.tripData.trips.value.firstWhere((trip) => trip.id == widget.tripId);
   }
 
-  Future<void> _selectNewEventStartDate(BuildContext context) async {
+  @override
+  void dispose() {
+    _eventTitleController.dispose();
+    _eventNotesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectEventStartDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _newEventStartDate ?? DateTime.now(),
+      initialDate: _eventStartDate ?? DateTime.now(),
       firstDate: DateTime(2010),
       lastDate: DateTime(2030),
     );
     if (picked != null) {
       setState(() {
-        _newEventStartDate = picked;
-        
+        _eventStartDate = picked;
+
         // If end date is before start date, update end date to match start date
-        if (_newEventEndDate != null && _newEventEndDate!.isBefore(_newEventStartDate!)) {
-          _newEventEndDate = _newEventStartDate;
+        if (_eventEndDate != null && _eventEndDate!.isBefore(_eventStartDate!)) {
+          _eventEndDate = _eventStartDate;
         }
-        
+
         // Check if it's a multi-day event
         _updateMultiDayState();
       });
     }
   }
 
-  Future<void> _selectNewEventEndDate(BuildContext context) async {
+  Future<void> _selectEventEndDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _newEventEndDate ?? _newEventStartDate ?? DateTime.now(),
-      firstDate: _newEventStartDate ?? DateTime(2010),
+      initialDate: _eventEndDate ?? _eventStartDate ?? DateTime.now(),
+      firstDate: _eventStartDate ?? DateTime(2010),
       lastDate: DateTime(2030),
     );
     if (picked != null) {
       setState(() {
-        _newEventEndDate = picked;
-        
+        _eventEndDate = picked;
+
         // Check if it's a multi-day event
         _updateMultiDayState();
       });
@@ -91,29 +103,30 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
   }
 
   void _updateMultiDayState() {
-    if (_newEventStartDate != null && _newEventEndDate != null) {
+    if (_eventStartDate != null && _eventEndDate != null) {
       setState(() {
-        _isMultiDayEvent = !isSameDay(_newEventStartDate!, _newEventEndDate!);
+        _isMultiDayEvent = !isSameDay(_eventStartDate!, _eventEndDate!);
       });
     }
   }
 
-  Future<void> _selectNewEventStartTime(BuildContext context) async {
+  Future<void> _selectEventStartTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _newEventStartTime ?? TimeOfDay.now(),
+      initialTime: _eventStartTime ?? TimeOfDay.now(),
     );
     if (picked != null) {
       setState(() {
-        _newEventStartTime = picked;
-        
+        _eventStartTime = picked;
+
         // If start and end date are the same and end time is before start time,
         // update end time to be after start time
-        if (!_isMultiDayEvent && _newEventEndTime != null) {
-          if (_timeOfDayToMinutes(_newEventEndTime!) <= _timeOfDayToMinutes(_newEventStartTime!)) {
-            _newEventEndTime = TimeOfDay(
-              hour: (_newEventStartTime!.hour + 1) % 24,
-              minute: _newEventStartTime!.minute,
+        if (!_isMultiDayEvent && _eventEndTime != null) {
+          if (_timeOfDayToMinutes(_eventEndTime!) <=
+              _timeOfDayToMinutes(_eventStartTime!)) {
+            _eventEndTime = TimeOfDay(
+              hour: (_eventStartTime!.hour + 1) % 24,
+              minute: _eventStartTime!.minute,
             );
           }
         }
@@ -121,14 +134,14 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     }
   }
 
-  Future<void> _selectNewEventEndTime(BuildContext context) async {
+  Future<void> _selectEventEndTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _newEventEndTime ?? TimeOfDay.now(),
+      initialTime: _eventEndTime ?? TimeOfDay.now(),
     );
     if (picked != null) {
       setState(() {
-        _newEventEndTime = picked;
+        _eventEndTime = picked;
       });
     }
   }
@@ -137,17 +150,45 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     return time.hour * 60 + time.minute;
   }
 
-  void _addNewEvent() {
-    if (_newEventTitleController.text.isNotEmpty && 
-        _newEventStartDate != null && 
-        _newEventEndDate != null && 
-        _newEventStartTime != null && 
-        _newEventEndTime != null) {
-      
+  // Function to check for time conflicts
+  bool _checkTimeConflict(
+      DateTime startDate, DateTime endDate, TimeOfDay startTime, TimeOfDay endTime,
+      [int? excludeIndex]) {
+    for (int i = 0; i < _allEvents.length; i++) {
+      if (i == excludeIndex) continue; // Skip the event being edited
+      final existingEvent = _allEvents[i];
+      //check if the event overlaps
+      if (startDate.isBefore(existingEvent.endDate) &&
+          endDate.isAfter(existingEvent.startDate)) {
+        // Check for any overlap in time.
+        if (startTime.hour < existingEvent.timeEnd.hour ||
+            (startTime.hour == existingEvent.timeEnd.hour &&
+                startTime.minute < existingEvent.timeEnd.minute))
+        {
+           if (endTime.hour > existingEvent.timeStart.hour ||
+            (endTime.hour == existingEvent.timeStart.hour &&
+                endTime.minute > existingEvent.timeStart.minute))
+           {
+             return true; // Conflict found
+           }
+        }
+      }
+    }
+    return false; // No conflict
+  }
+
+  void _addOrUpdateEvent() {
+    if (_eventTitleController.text.isNotEmpty &&
+        _eventStartDate != null &&
+        _eventEndDate != null &&
+        _eventStartTime != null &&
+        _eventEndTime != null) {
       // Validate event timing
-      final startDateTime = CalendarUtils.combineDateAndTime(_newEventStartDate!, _newEventStartTime!);
-      final endDateTime = CalendarUtils.combineDateAndTime(_newEventEndDate!, _newEventEndTime!);
-      
+      final startDateTime =
+          CalendarUtils.combineDateAndTime(_eventStartDate!, _eventStartTime!);
+      final endDateTime =
+          CalendarUtils.combineDateAndTime(_eventEndDate!, _eventEndTime!);
+
       if (endDateTime.isBefore(startDateTime)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('End time cannot be before start time')),
@@ -155,33 +196,99 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
         return;
       }
 
-      setState(() {
-        _allEvents.add(
-          Event(
-            startDate: _newEventStartDate!,
-            endDate: _newEventEndDate!,
-            timeStart: _newEventStartTime!,
-            timeEnd: _newEventEndTime!,
-            title: _newEventTitleController.text,
-            location: _newEventLocationController.text,
-            notes: _newEventNotesController.text,
-            isMultiDay: _isMultiDayEvent,
-          ),
+      // Check for time conflicts
+      if (_checkTimeConflict(
+          startDateTime, endDateTime, _eventStartTime!, _eventEndTime!, _editingIndex)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event time conflicts with another event')),
         );
+        return;
+      }
+
+      Event newEvent = Event(
+        startDate: _eventStartDate!,
+        endDate: _eventEndDate!,
+        timeStart: _eventStartTime!,
+        timeEnd: _eventEndTime!,
+        title: _eventTitleController.text,
+        notes: _eventNotesController.text,
+        isMultiDay: _isMultiDayEvent,
+      );
+
+      Activity newActivity = Activity(
+        from: CalendarUtils.formatTimeOfDay(_eventStartTime!),
+        to: CalendarUtils.formatTimeOfDay(_eventEndTime!),
+        title: _eventTitleController.text,
+        details: _eventNotesController.text,
+      );
+
+      DateTime tripDateFrom = DateTime.parse(_trip.dateFrom.value!);
+      int dayDifference =
+          _eventStartDate!.difference(tripDateFrom).inDays + 1;
+      String dayKey = "day$dayDifference";
+
+      //  Make sure the dayKey exists.
+      if (!_trip.itineraries.containsKey(dayKey)) {
+        _trip.itineraries[dayKey] = Itinerary(
+          date: DateFormat('yyyy-MM-dd').format(_eventStartDate!),
+          activities: [], //  Initialize with an empty list.
+        );
+      }
+      //update or add
+      if (_editingIndex != null) {
+        //update
+        _allEvents[_editingIndex!] = newEvent;
+
+        //update activity
+        bool found = false;
+        for (var activity in _trip.itineraries[dayKey]!.activities)
+        {
+          if (activity.title == _eventTitleController.text)
+          {
+            activity.from = CalendarUtils.formatTimeOfDay(_eventStartTime!);
+            activity.to = CalendarUtils.formatTimeOfDay(_eventEndTime!);
+            activity.details = _eventNotesController.text;
+            found = true;
+            break;
+          }
+        }
+        if (!found)
+        {
+          _trip.itineraries[dayKey]!.activities.add(newActivity);
+        }
+
+      } else {
+        //add
+        _allEvents.add(newEvent);
+        _trip.itineraries[dayKey]!.activities.add(newActivity);
+      }
+
+      //sort
+      _allEvents.sort((a, b) {
+        int startTimeComparison = a.startDate.compareTo(b.startDate);
+        if (startTimeComparison != 0) {
+          return startTimeComparison;
+        }
+        return a.timeStart.compareTo(b.timeStart);
+      });
+
+      GlobalTripData.instance.notifyListeners();
+      setState(() {
         _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);
-        _newEventTitleController.clear();
-        _newEventStartTime = null;
-        _newEventEndTime = null;
-        _newEventLocationController.clear();
-        _newEventNotesController.clear();
-        // Keep the dates set to the selected day
-        _newEventStartDate = _selectedDay;
-        _newEventEndDate = _selectedDay;
+        _eventTitleController.clear();
+        _eventStartTime = null;
+        _eventEndTime = null;
+        _eventNotesController.clear();
+        _eventStartDate = _selectedDay;
+        _eventEndDate = _selectedDay;
         _isMultiDayEvent = false;
+        _editingIndex = null; // Reset editing index
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in the event title, dates and times')),
+        const SnackBar(
+            content:
+                Text('Please fill in the event title, dates and times')),
       );
     }
   }
@@ -189,11 +296,38 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
   void _deleteEvent(Event event) {
     setState(() {
       _allEvents.remove(event);
+
+      _trip.itineraries.forEach((key, itinerary) {
+        itinerary.activities.removeWhere((activity) =>
+            activity.title == event.title &&
+            activity.from == CalendarUtils.formatTimeOfDay(event.timeStart) &&
+            activity.to == CalendarUtils.formatTimeOfDay(event.timeEnd));
+      });
+      GlobalTripData.instance.notifyListeners();
+
       _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);
     });
   }
 
+  void _editEvent(int index) {
+    final event = _selectedEvents[index]; // Use _selectedEvents
+    _eventTitleController.text = event.title;
+    _eventStartDate = event.startDate;
+    _eventEndDate = event.endDate;
+    _eventStartTime = event.timeStart;
+    _eventEndTime = event.timeEnd;
+    _eventNotesController.text = event.notes;
+    _isMultiDayEvent = event.isMultiDay;
+    _editingIndex = _allEvents.indexOf(event); // Store the index in _allEvents
+
+    setState(() {
+      _eventStartDate = event.startDate;
+      _eventEndDate = event.endDate;
+    });
+  }
+
   void _confirmChanges() {
+    GlobalTripData.instance.notifyListeners();
     Navigator.pop(context, _allEvents);
   }
 
@@ -222,13 +356,20 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
               setState(() {
                 _selectedDay = selectedDay;
                 _focusedDay = focusedDay;
-                _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, selectedDay);
-                
+                _selectedEvents =
+                    CalendarUtils.getEventsForDay(_allEvents, selectedDay);
+
                 // Update start/end date for new event form
-                if (_newEventStartDate == null || _newEventEndDate == null) {
-                  _newEventStartDate = selectedDay;
-                  _newEventEndDate = selectedDay;
+                if (_eventStartDate == null || _eventEndDate == null) {
+                  _eventStartDate = selectedDay;
+                  _eventEndDate = selectedDay;
                 }
+                _editingIndex = null;
+                _eventTitleController.clear();
+                _eventNotesController.clear();
+                _eventStartTime = null;
+                _eventEndTime = null;
+                _isMultiDayEvent = false;
               });
             },
             onFormatChanged: (format) {
@@ -288,7 +429,8 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Events for this day:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Events for this day:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   _selectedEvents.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -301,26 +443,32 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                           itemBuilder: (context, index) {
                             final event = _selectedEvents[index];
                             return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 8.0),
+                              margin:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
                               child: Padding(
                                 padding: const EdgeInsets.all(12.0),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
                                         Expanded(
                                           child: Text(
                                             '${CalendarUtils.formatEventDuration(event)}: ${event.title}',
-                                            style: const TextStyle(fontWeight: FontWeight.w500),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w500),
                                           ),
                                         ),
                                         if (event.isMultiDay)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.blue.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(12),
+                                              color: Colors.blue
+                                                  .withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: const Text(
                                               'Multi-day',
@@ -333,15 +481,23 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                                           ),
                                       ],
                                     ),
-                                    if (event.location.isNotEmpty) Text('Location: ${event.location}'),
-                                    if (event.notes.isNotEmpty) Text('Notes: ${event.notes}', style: const TextStyle(fontStyle: FontStyle.italic)),
+                                    if (event.notes.isNotEmpty)
+                                      Text('Notes: ${event.notes}',
+                                          style: const TextStyle(
+                                              fontStyle:
+                                                  FontStyle.italic)),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.end,
                                       children: [
-                                        IconButton(icon: const Icon(Icons.edit), onPressed: () {
-                                          // Implement edit functionality
-                                        }),
-                                        IconButton(icon: const Icon(Icons.delete), onPressed: () => _deleteEvent(event)),
+                                        IconButton(
+                                            icon: const Icon(Icons.edit),
+                                            onPressed: () =>
+                                                _editEvent(index)),
+                                        IconButton(
+                                            icon: const Icon(Icons.delete),
+                                            onPressed: () =>
+                                                _deleteEvent(event)),
                                       ],
                                     ),
                                   ],
@@ -351,9 +507,14 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                           },
                         ),
                   const SizedBox(height: 24),
-                  const Text('Add New Event:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    _editingIndex == null
+                        ? 'Add New Event:'
+                        : 'Edit Event:',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   TextField(
-                    controller: _newEventTitleController,
+                    controller: _eventTitleController,
                     decoration: const InputDecoration(labelText: 'Title'),
                   ),
                   const SizedBox(height: 16),
@@ -361,20 +522,22 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                     children: [
                       Expanded(
                         child: InkWell(
-                          onTap: () => _selectNewEventStartDate(context),
+                          onTap: () => _selectEventStartDate(context),
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Start Date'),
-                            child: Text(_formatDate(_newEventStartDate)),
+                            decoration:
+                                const InputDecoration(labelText: 'Start Date'),
+                            child: Text(_formatDate(_eventStartDate)),
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: InkWell(
-                          onTap: () => _selectNewEventEndDate(context),
+                          onTap: () => _selectEventEndDate(context),
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'End Date'),
-                            child: Text(_formatDate(_newEventEndDate)),
+                            decoration:
+                                const InputDecoration(labelText: 'End Date'),
+                            child: Text(_formatDate(_eventEndDate)),
                           ),
                         ),
                       ),
@@ -385,15 +548,18 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                          border: Border.all(
+                              color: Colors.blue.withOpacity(0.5)),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.date_range, size: 16, color: Colors.blue),
+                            Icon(Icons.date_range,
+                                size: 16, color: Colors.blue),
                             SizedBox(width: 8),
                             Text(
                               'Multi-day event',
@@ -411,44 +577,55 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                     children: [
                       Expanded(
                         child: InkWell(
-                          onTap: () => _selectNewEventStartTime(context),
+                          onTap: () => _selectEventStartTime(context),
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Start Time'),
-                            child: Text(_newEventStartTime == null ? 'Select Time' : CalendarUtils.formatTimeOfDay(_newEventStartTime!)),
+                            decoration:
+                                const InputDecoration(labelText: 'Start Time'),
+                            child: Text(_eventStartTime == null
+                                ? 'Select Time'
+                                : CalendarUtils.formatTimeOfDay(
+                                    _eventStartTime!)),
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: InkWell(
-                          onTap: () => _selectNewEventEndTime(context),
+                          onTap: () => _selectEventEndTime(context),
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'End Time'),
-                            child: Text(_newEventEndTime == null ? 'Select Time' : CalendarUtils.formatTimeOfDay(_newEventEndTime!)),
+                            decoration:
+                                const InputDecoration(labelText: 'End Time'),
+                            child: Text(_eventEndTime == null
+                                ? 'Select Time'
+                                : CalendarUtils.formatTimeOfDay(
+                                    _eventEndTime!)),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      )],
+                    ),
                   TextField(
-                    controller: _newEventLocationController,
-                    decoration: const InputDecoration(labelText: 'Location (Optional)'),
-                  ),
-                  TextField(
-                    controller: _newEventNotesController,
-                    decoration: const InputDecoration(labelText: 'Notes (Optional)'),
+                    controller: _eventNotesController,
+                    decoration:
+                        const InputDecoration(labelText: 'Notes (Optional)'),
                     maxLines: 2,
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _addNewEvent, child: const Text('Add Event')),
+                  ElevatedButton(
+                      onPressed: _addOrUpdateEvent,
+                      child: Text(_editingIndex == null
+                          ? 'Add Event'
+                          : 'Update Event')),
                   const SizedBox(height: 24),
-                  const Text('AI Assistance:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('AI Assistance:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   TextField(
                     controller: _aiRequestController,
-                    decoration: const InputDecoration(labelText: 'Ask AI for suggestions'),
+                    decoration: const InputDecoration(
+                        labelText: 'Ask AI for suggestions'),
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton(onPressed: () {}, child: const Text('Send')),
+                  ElevatedButton(
+                      onPressed: () {}, child: const Text('Send')),
                   if (_aiResponse.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
@@ -469,7 +646,8 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+                    child:
+                        const Text('Cancel', style: TextStyle(fontSize: 16)),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -478,7 +656,8 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                     onPressed: () {
                       _confirmChanges();
                     },
-                    child: const Text('Confirm', style: TextStyle(fontSize: 16)),
+                    child:
+                        const Text('Confirm', style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ],

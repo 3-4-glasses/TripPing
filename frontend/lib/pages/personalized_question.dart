@@ -1,3 +1,4 @@
+import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
 import 'calendar.dart';
 
@@ -20,7 +21,7 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
       // For now, we'll just proceed.
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => Calendar()),
+        MaterialPageRoute(builder: (context) => MainPage()),
       );
     } else {
       setState(() {

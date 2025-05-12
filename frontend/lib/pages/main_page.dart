@@ -44,40 +44,28 @@ class _MainPageState extends State<MainPage> {
   }
 
   Trip? _findClosestTrip(List<Trip> trips, DateTime today){
-    // Debug: check if trips list is empty
-  if (trips.isEmpty) {
-    print("Trips list is empty");
-    return null;
-  }
-  
-  Trip? closestTrip;
-  Duration? closestDuration;
-  
-  // Use a normalized today date (just the date part without time)
-  final todayNormalized = DateTime(today.year, today.month, today.day);
-  print("Today (normalized): $todayNormalized");
-  
-  for (final trip in trips) {
-    // Debug: print trip info
-    print("Processing trip: ${trip.name.value}");
-    
-    final dateFrom = trip.dateFrom.value;
-    if (dateFrom == null) {
-      print("Trip ${trip.name.value} has null dateFrom");
-      continue;
+    if (trips.isEmpty) {
+      return null;
     }
+  
+    Trip? closestTrip;
+    Duration? closestDuration;
+  
+    final todayNormalized = DateTime(today.year, today.month, today.day);
+  
+    for (final trip in trips) {
+      final dateFrom = trip.dateFrom.value;
+      if (dateFrom == null) {
+        continue;
+      }
     
     try {
-      // Parse the trip start date
       final tripDate = DateTime.parse(dateFrom);
       final tripDateNormalized = DateTime(tripDate.year, tripDate.month, tripDate.day);
-      print("Trip ${trip.name.value} date: $tripDateNormalized");
       
-      // Consider both future trips and ongoing trips
       final dateTo = trip.dateTo.value;
       final DateTime? tripEndDate = dateTo != null ? DateTime.parse(dateTo) : null;
       
-      // Check if trip is ongoing (today is on or after start date AND before or on end date)
       bool isOngoing = false;
       if (tripEndDate != null) {
         final tripEndNormalized = DateTime(tripEndDate.year, tripEndDate.month, tripEndDate.day);
@@ -89,75 +77,46 @@ class _MainPageState extends State<MainPage> {
         isOngoing = todayNormalized.isAtSameMomentAs(tripDateNormalized) || 
                    todayNormalized.isAfter(tripDateNormalized);
       }
-      
-      // Check if trip is in the future
+
       bool isFuture = tripDateNormalized.isAfter(todayNormalized);
-      
-      print("Trip ${trip.name.value} - isOngoing: $isOngoing, isFuture: $isFuture");
-      
-      // If trip is ongoing, it gets highest priority
+
       if (isOngoing) {
         closestTrip = trip;
         closestDuration = Duration.zero; // Set to zero to give highest priority
-        print("Found ongoing trip: ${trip.name.value}");
         break; // Stop searching if we find an ongoing trip
       }
-      
-      // Otherwise, if trip is in the future, compare it with other future trips
+    
       if (isFuture) {
         final duration = tripDateNormalized.difference(todayNormalized);
         
         if (closestTrip == null) {
-          // First valid future trip found
           closestTrip = trip;
           closestDuration = duration;
-          print("Set first future trip: ${trip.name.value}, ${duration.inDays} days away");
         } else if (closestDuration != null && duration < closestDuration) {
-          // We found a closer future trip
           closestTrip = trip;
           closestDuration = duration;
-          print("Found closer future trip: ${trip.name.value}, ${duration.inDays} days away");
         }
       }
     } catch (e) {
-      print("Error parsing date for trip ${trip.name.value}: $e");
+        print("Error parsing date for trip ${trip.name.value}: $e");
+      }
     }
-  }
-  
-  // Debug: result
-  if (closestTrip != null) {
-    print("Final closest trip: ${closestTrip.name.value}");
-  } else {
-    print("No closest trip found");
-  }
-  
-  return closestTrip;
+
+    return closestTrip;
   }
 
   List<Activity> _getRelevantActivities(Trip closestTrip, DateTime today){
     // Format today as a string in the same format as stored in the itinerary dates
-    // todayString = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
-    final todayString = "2025-07-28";
-    print("Looking for activities on date: $todayString");
-    
-    // Debug: print all itineraries in this trip
-    print("All itineraries in ${closestTrip.name.value}:");
-    closestTrip.itineraries.forEach((key, itinerary) {
-      print("  Key: $key, Date: ${itinerary.date}");
-    });
-    
+    final todayString = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+
     // Find today's itinerary
     Itinerary? todaysItinerary;
     for (final entry in closestTrip.itineraries.entries) {
       final itinerary = entry.value;
       
-      // Debug
-      print("Comparing itinerary date '${itinerary.date}' with today's date '$todayString'");
-      
       // Try both formatted and direct comparison
       if (itinerary.date == todayString) {
         todaysItinerary = itinerary;
-        print("Found matching itinerary for today!");
         break;
       }
       
@@ -170,7 +129,6 @@ class _MainPageState extends State<MainPage> {
             itineraryDate.month == todayDate.month && 
             itineraryDate.day == todayDate.day) {
           todaysItinerary = itinerary;
-          print("Found matching itinerary by parsing date");
           break;
         }
       } catch (e) {
@@ -179,11 +137,8 @@ class _MainPageState extends State<MainPage> {
     }
     
     if (todaysItinerary == null) {
-      print("No itinerary found for today");
       return [];
     }
-    
-    print("Found today's itinerary with ${todaysItinerary.activities.length} activities");
     
     // Get the current time for filtering activities
     final currentTime = TimeOfDay.fromDateTime(today);
@@ -192,16 +147,21 @@ class _MainPageState extends State<MainPage> {
     // Find activities that haven't started yet or are ongoing
     final relevantActivities = todaysItinerary.activities.where((activity) {
       final activityStartTime = parseTime(activity.from);
+      final activityEndTime = parseTime(activity.to);
+      
       final activityStartMinutes = activityStartTime.hour * 60 + activityStartTime.minute;
+      final activityEndMinutes = activityEndTime.hour * 60 + activityEndTime.minute;
       
-      // An activity is relevant if it starts now or in the future
-      final isRelevant = activityStartMinutes >= currentHourMinutes;
-      print("Activity: ${activity.title}, Time: ${activity.from}, Relevant: $isRelevant");
-      
+      // An activity is relevant if:
+      // 1. It starts now or in the future, OR
+      // 2. It's ongoing (started before now but ends after now)
+      final isUpcoming = activityStartMinutes >= currentHourMinutes;
+      final isOngoing = activityStartMinutes < currentHourMinutes && activityEndMinutes > currentHourMinutes;
+      final isRelevant = isUpcoming || isOngoing;
+          
       return isRelevant;
     }).toList();
     
-    print("Found ${relevantActivities.length} relevant activities for today");
     return relevantActivities;
   }
 
@@ -270,40 +230,47 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
           ),
-          Icon(Icons.chevron_right)
+          IconButton(onPressed: () {}, icon: Icon(Icons.chevron_right))
         ],
       ),
     );
   }
 
   Widget _buildItinerarySection(Trip closestTrip, DateTime today, List<Activity> relevantActivities){
-    return Column(
-      children: [
-        Text("Ongoing itinerary", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        SizedBox(height: 10),
-        Container(
-          padding: EdgeInsets.all(12),
-          decoration:BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(8)
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.all(4.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                DateFormat('MMMM dd, yyyy').format(today),
-                style: TextStyle(fontWeight: FontWeight.bold)
-              ),
-              SizedBox(height: 10),
-              // Display a maximum of 3 events in a day.
-              ...relevantActivities.take(3).map((event) => _buildEventItem(event)),
-              if (relevantActivities.length > 3)
-              TextButton(onPressed: () {}, child: Text('See more')),
-              TextButton(onPressed: () {}, child: Text('View calendar'))
+              Text("Ongoing itinerary", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              IconButton(onPressed: () {}, icon: Icon(Icons.settings))
             ],
           ),
-        )
-      ],
+          SizedBox(height: 6),
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration:BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(8)
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('MMMM dd, yyyy').format(today),
+                  style: TextStyle(fontWeight: FontWeight.bold)
+                ),
+                SizedBox(height: 10),
+                // Display a maximum of 3 events in a day.
+                ...relevantActivities.take(3).map((event) => _buildEventItem(event)),
+              ],
+            ),
+          )
+        ],
+      ),
     );
   }
 
@@ -356,7 +323,7 @@ Widget _buildBottomNavigationBar(BuildContext context) {
         }));
       }
       else if (index == 2) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) {
           return EventSelection();
         }));
       } 

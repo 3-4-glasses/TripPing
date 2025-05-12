@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:apacsolchallenge/pages/general_question.dart';
 import 'package:apacsolchallenge/pages/main_page.dart';
+import '../data/global_trip_data.dart';
+
+final tripData = GlobalTripData.instance.tripData; // Access the global TripData instance
 
 class EventSelection extends StatelessWidget {
   const EventSelection({super.key});
@@ -25,19 +28,6 @@ class EventSelection extends StatelessWidget {
               height: 16.0,
             ),
             _buildAvailablePlansList(context),
-            SizedBox(
-              height: 32.0,
-            ),
-            Text(
-              'Drafted plans',
-              style: TextStyle(
-                fontSize: 24.0, fontWeight: FontWeight.bold
-              )
-            ),
-            SizedBox(
-              height: 16.0,
-            ),
-            _buildDraftedPlansList(context),
           ],
         )
       ),
@@ -55,7 +45,7 @@ class EventSelection extends StatelessWidget {
             }));
           }
           else if (index == 1){
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) {
               return GeneralQuestion();
             }));
           }
@@ -65,7 +55,7 @@ class EventSelection extends StatelessWidget {
   }
 
   Widget _buildAvailablePlansList(BuildContext context){
-    List<String> availableTrips = ['Trip 1', 'Trip 2'];
+    List<String> availableTrips = _getTripNames();
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
@@ -77,7 +67,7 @@ class EventSelection extends StatelessWidget {
             title: Text(availableTrips[index]),
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) {
-                return Calendar();
+                return Calendar(tripId: "trip1",);
               }));
             },
           )
@@ -86,23 +76,10 @@ class EventSelection extends StatelessWidget {
     );
   }
 
-  Widget _buildDraftedPlansList(BuildContext context) {
-    List<String> draftedTrips = ['Draft 1', 'Draft 2'];
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: draftedTrips.length,
-      itemBuilder: (context, index) {
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8.0),
-          child: ListTile(
-            title: Text(draftedTrips[index]),
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const GeneralQuestion()));
-            },
-          ),
-        );
-      },
-    );
+  List<String> _getTripNames(){
+    final tripList = tripData.trips.value;
+    
+    final tripNames = tripList.map((trip) => trip.name.value).toList();
+    return tripNames; 
   }
 }

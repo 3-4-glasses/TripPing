@@ -9,7 +9,7 @@ import 'trip_data.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-class GlobalTripData {
+class GlobalTripData extends ChangeNotifier{
   static final GlobalTripData _instance = GlobalTripData._internal();
   static GlobalTripData get instance => _instance;
 
@@ -39,11 +39,18 @@ class GlobalTripData {
           "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
     );
     final activity2 = Activity(
-      from: "23:30",
-      to: "23:59",
+      from: "11:00",
+      to: "14:00",
       title: "Local market tour",
       details:
           "Support local artisans by exploring handmade crafts and regional food.",
+    );
+    final activity5 = Activity(
+      from: "16:00",
+      to: "19:00",
+      title: "Dinner at the beach",
+      details:
+          "Get some fried scallops.",
     );
     final activity3 = Activity(
       from: "14:00",
@@ -61,23 +68,23 @@ class GlobalTripData {
     );
 
     final itinerary1 = Itinerary(
-      date: "2025-07-28",
-      activities: [activity1, activity2],
+      date: "2025-05-12",
+      activities: [activity1, activity2, activity5],
     );
     final itinerary2 = Itinerary(
-      date: "2025-07-29",
+      date: "2025-05-13",
       activities: [activity3],
     );
     final itinerary3 = Itinerary(
-      date: "2025-07-30",
+      date: "2025-05-14",
       activities: [activity4],
     );
 
     final trip1 = Trip(
       id: 'trip1',
       name: ValueNotifier<String>('Bali Adventure'),
-      dateFrom: ValueNotifier<String?>('2025-07-28'),
-      dateTo: ValueNotifier<String?>('2025-08-02'),
+      dateFrom: ValueNotifier<String?>('2025-05-12'),
+      dateTo: ValueNotifier<String?>('2025-05-14'),
       expensesUsed: ValueNotifier<double>(250.0),
       expensesLimit: ValueNotifier<double>(1000.0),
       items: ValueNotifier<List<String>>(['Sunscreen', 'Hat']),
@@ -86,7 +93,7 @@ class GlobalTripData {
       itineraries: {
         'day1': itinerary1,
         'day2': itinerary2,
-                'day3': itinerary3,
+        'day3': itinerary3,
       },
     );
 
@@ -119,5 +126,20 @@ class GlobalTripData {
     tripData.addTrip(trip1);
     tripData.addTrip(trip2);
     return tripData;
+  }
+
+  void addTrip(Trip trip){
+    tripData.addTrip(trip);
+    notifyListeners();
+  }
+
+  void updateTrip(String tripId, Trip updateTrip){
+    tripData.updateTrip(tripId, updateTrip);
+    notifyListeners();
+  }
+
+  void deleteTrip(String tripId){
+    tripData.deleteTrip(tripId);
+    notifyListeners();
   }
 }
