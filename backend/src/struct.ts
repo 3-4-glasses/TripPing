@@ -11,21 +11,13 @@ export interface Trip{
   items: String[]
 }
 
-export interface ApiResponse {
-    status: boolean;
-    message?: string;
-    error?: string;
-    tripId?: string;  // Add any specific fields you need here
-    ids?: string[];
-    iteneraries?: any[]; // Replace 'any' with a more specific type
-}
 
 export interface Activity {
   from: Date;
   to: Date;
   title: string;
   details: string;
-  location: admin.firestore.GeoPoint;
+  location?: admin.firestore.GeoPoint;
 }
 
 export interface Itinerary {

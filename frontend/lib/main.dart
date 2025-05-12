@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -167,10 +168,10 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                   ),
                   const SizedBox(height: 30),
                   if (errorMessage != null) // Error message
-                    Text(
-                      errorMessage!,
-                      style: TextStyle(color: Colors.red, fontSize: 14),
-                    ),
+                    SnackBar(content:
+                    Text(errorMessage!),
+                    backgroundColor: Colors.redAccent,
+                    duration: Duration(seconds:2),),
                   Center(
                     child: SizedBox(
                       width: 300,

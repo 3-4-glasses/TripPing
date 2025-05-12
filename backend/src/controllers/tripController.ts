@@ -1,9 +1,25 @@
 import { Request, Response } from 'express';
 import * as tripService from '../services/tripServices';
 
+// TODO for some functions see if the userId exists, cuz if not it will make it automatically, bad
+
 const createTrip = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, tripData, itineraries } = req.body;
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+
+        if (!tripData || Object.keys(tripData).length === 0) {
+            return res.status(400).json({ status: false, error: "tripData is required" });
+        }
+        if (!itineraries || !Array.isArray(itineraries) || itineraries.length === 0) {
+            return res.status(400).json({ status: false, error: "itineraries must be a non-empty array" });
+        }
         const tripId = await tripService.createTrip(userId, tripData, itineraries);
         return res.status(201).json({ status: true, tripId });
     } catch (error) {
@@ -14,6 +30,21 @@ const createTrip = async (req: Request, res: Response): Promise<any> => {
 const getItineraryIds = async(req:Request, res: Response): Promise<any>=>{
     try{
         const {userId,tripId} = req.body;
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+        if(!tripId || tripId === ''){
+            return res.status(400).json({ status: false, error: "tripId is required" });
+        }
+        
+        if(!tripService.isTripExist(userId,tripId)){
+            return res.status(404).json({ status: false, error: "tripId does not exist" });
+        }
+        
         const itineraries =await tripService.getItineraryIds(userId,tripId);
         return res.status(200).json({ status: true, ids: itineraries });
     }catch(error){
@@ -24,6 +55,21 @@ const getItineraryIds = async(req:Request, res: Response): Promise<any>=>{
 const getAllItinerary = async (req:Request, res:Response): Promise<any>=>{
     try{
         const {userId, tripId} = req.body;
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+        if(!tripId || tripId === ''){
+            return res.status(400).json({ status: false, error: "tripId is required" });
+        }
+        
+        if(!tripService.isTripExist(userId,tripId)){
+            return res.status(404).json({ status: false, error: "tripId does not exist" });
+        }
+
         const iteneraries = await tripService.getAllItinerary(userId,tripId);
         return res.status(200).json({status:true, iteneraries:iteneraries})
     }catch(error){
@@ -34,6 +80,14 @@ const getAllItinerary = async (req:Request, res:Response): Promise<any>=>{
 const getAllTrip = async (req:Request, res:Response): Promise<any>=>{
     try{
         const {userId} = req.body;
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+
         const trips = await tripService.getAllTrip(userId);
         return res.status(200).json({status:true,trips:trips});
     }catch(error){
@@ -44,6 +98,30 @@ const getAllTrip = async (req:Request, res:Response): Promise<any>=>{
 const addActivity = async (req:Request, res:Response): Promise<any>=>{
     try{
         const {userId, activityAddition, tripId, itineraryId} = req.body;
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+        if(!tripId || tripId === ''){
+            return res.status(400).json({ status: false, error: "tripId is required" });
+        }
+        
+        if(!tripService.isTripExist(userId,tripId)){
+            return res.status(404).json({ status: false, error: "tripId does not exist" });
+        }        
+        if(!itineraryId || itineraryId === ''){
+            return res.status(400).json({ status: false, error: "itineraryId is required" });
+        }
+
+        if(!tripService.isItineraryExist(userId,tripId,itineraryId)){
+            return res.status(404).json({ status: false, error: "itineraryId does not exist" });
+        }
+        if (!activityAddition || !activityAddition.from || !activityAddition.to || !activityAddition.title) {
+            return res.status(400).json({ status: false, error: "Invalid activity structure" });
+        }
         await tripService.addActivity(userId,activityAddition,tripId,itineraryId);
         return res.status(201).json({status:true,message:"success"});
     }catch(error){
@@ -51,10 +129,26 @@ const addActivity = async (req:Request, res:Response): Promise<any>=>{
     }
 }
 
-
 const addItem = async (req:Request, res:Response): Promise<any> =>{
     try{
         const {userId, tripId, item} = req.body;
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+        if(!tripId || tripId === ''){
+            return res.status(400).json({ status: false, error: "tripId is required" });
+        }
+        
+        if(!tripService.isTripExist(userId,tripId)){
+            return res.status(404).json({ status: false, error: "tripId does not exist" });
+        }        
+        if(!item || item ===''){
+            return res.status(400).json({ status: false, error: "item is required" });
+        }
         await tripService.addItems(userId,tripId,item);
         return res.status(200).json({status:true,message:"success"});
     }catch(error){

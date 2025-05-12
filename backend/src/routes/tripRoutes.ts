@@ -15,8 +15,6 @@ import {
 
 const tripRouter = express.Router();
 
-tripRouter.post('/create', createTrip);
-
 tripRouter.get('/itinerary-ids', getItineraryIds);
 
 tripRouter.get('/itineraries', getAllItinerary);

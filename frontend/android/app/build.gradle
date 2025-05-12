@@ -51,5 +51,5 @@ android.applicationVariants.all { variant ->
 }
 
 flutter {
-    source = "../.."
+    source="../.."
 }

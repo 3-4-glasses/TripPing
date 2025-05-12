@@ -4,6 +4,9 @@ import { Request, Response } from 'express';
 const registerUser = async (req: Request, res: Response):Promise<any>=>{
   try {
     const { user_name, email, password } = req.body;
+    if(!user_name || user_name === ''){
+      return res.status(400).json({ status: false, error:"username must exist" });
+    }
     const userId = await userService.registerUser(user_name, email, password);
     await userService.initUser(userId,user_name);
     return res.status(201).json({ status: true, userId:userId });

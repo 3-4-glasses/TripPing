@@ -3,6 +3,7 @@
     "@google-cloud/storage": "^7.16.0",
     "@google/genai": "^0.13.0",
     "@google/generative-ai": "^0.24.1",
+    "@googlemaps/google-maps-services-js": "^3.4.1",
     "@types/express": "^5.0.1",
     "axios": "^1.9.0",
     "cors": "^2.8.5",

@@ -52,7 +52,32 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+async function isUserExist(userId: string): Promise<boolean>{
+    try{
+        return (await db.collection("users").doc(userId).get()).exists;
+    }catch(error){
+        console.log(`error on is UserExist, ${userId}`);
+        throw error;
+    }
+}
 
+async function isTripExist(userId: string, tripId:string): Promise<boolean>{
+    try{
+        return (await db.collection("users").doc(userId).collection("trips").doc(tripId).get()).exists;
+    }catch(error){
+        console.log(`error on is UserExist, ${userId}`);
+        throw error;
+    }
+}
+
+async function isItineraryExist(userId: string, tripId:string,itineraryId:string): Promise<boolean>{
+    try{
+        return (await db.collection("users").doc(userId).collection("trips").doc(tripId).collection("itinerary").doc(itineraryId).get()).exists;
+    }catch(error){
+        console.log(`error on is UserExist, ${userId}`);
+        throw error;
+    }
+}
 
 async function createTrip(userId: string, tripData: any, itineraries: Itinerary[]): Promise<string>  {
     console.log(`error on createTrip, args userId ${userId} tripData ${tripData} itenerary ${itineraries}`);
@@ -262,12 +287,23 @@ async function deleteEvent(userId:string,tripId:string,itineraryId:string,activi
         const itinerarySnap = await itineraryRef.get();
         const data = itinerarySnap.data();
         let eventsDay:Activity[] = data!.activities;
-        const updatedActivities = eventsDay.filter((activityDay)=>{
-            return !(activityDay.details===activity.details && activityDay.title===activity.title && 
-                new Date(activityDay.from).getTime() === new Date(activity.from).getTime()
-                && new Date(activityDay.to)===new Date(activity.to)
-                && activityDay.location.latitude === activity.location.latitude && activityDay.location.longitude === activity.location.longitude)
+        const updatedActivities = eventsDay.filter((activityDay) => {
+            const sameLocation =
+                (!activityDay.location && !activity.location) || // both undefined/null
+                (activityDay.location &&
+                activity.location &&
+                activityDay.location.latitude === activity.location.latitude &&
+                activityDay.location.longitude === activity.location.longitude);
+
+            return !(
+                activityDay.details === activity.details &&
+                activityDay.title === activity.title &&
+                new Date(activityDay.from).getTime() === new Date(activity.from).getTime() &&
+                new Date(activityDay.to).getTime() === new Date(activity.to).getTime() &&
+                sameLocation
+            );
         });
+
         await itineraryRef.update({ activities: updatedActivities });
     }catch(error){
         console.log(`error on deleteEvent, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${activity}`);
@@ -318,7 +354,8 @@ async function setBudget(userId:string,tripId:string,amount:number): Promise<voi
 export {createTrip, getItineraryIds, 
     getAllItinerary, getAllTrip, addActivity, 
     addItems, deleteItem, incrementExpenses, 
-    deleteEvent, addVariableExpenses, setBudget} 
+    deleteEvent, addVariableExpenses, setBudget,
+    isTripExist,isItineraryExist,isUserExist} 
 
 // async function decrementExpenses(userId:string,tripId:string,amount:number){
 //     try{
