@@ -1,0 +1,299 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'personalized_question.dart';
+
+class GeneralQuestion extends StatefulWidget {
+  const GeneralQuestion({super.key});
+
+  @override
+  State<GeneralQuestion> createState() => _GeneralQuestionState();
+}
+
+class _GeneralQuestionState extends State<GeneralQuestion> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _tripNameController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
+  DateTime? _departureDate;
+  TimeOfDay? _departureTime;
+  DateTime? _returnDate;
+  TimeOfDay? _returnTime;
+  int _adultCount = 1;
+  int _childCount = 0;
+  final TextEditingController _transportationController = TextEditingController();
+  bool _isNextButtonEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Add listeners to text controllers
+    _tripNameController.addListener(_checkIfAllFieldsFilled);
+    _destinationController.addListener(_checkIfAllFieldsFilled);
+    _transportationController.addListener(_checkIfAllFieldsFilled);
+    
+    _checkIfAllFieldsFilled();
+  }
+
+  @override
+  void dispose() {
+    // Clean up controllers when the widget is disposed
+    _tripNameController.dispose();
+    _destinationController.dispose();
+    _transportationController.dispose();
+    super.dispose();
+  }
+
+  void _checkIfAllFieldsFilled(){
+    setState(() {
+      _isNextButtonEnabled = _tripNameController.text.isNotEmpty &&
+      _destinationController.text.isNotEmpty &&
+      _departureDate != null &&
+      _departureTime != null &&
+      _returnDate != null &&
+      _returnTime != null &&  // Fixed: was checking _returnDate twice
+      _transportationController.text.isNotEmpty;
+    });
+  }
+
+  Future<void> _selectDepartureDate(BuildContext context) async{
+    final DateTime? picked = await showDatePicker(context: context, 
+      initialDate: _departureDate ?? DateTime.now(),
+      firstDate: DateTime.now(), lastDate: DateTime(2101),
+    );
+    if (picked != null){
+      setState(() {
+        _departureDate = picked;
+        _checkIfAllFieldsFilled();
+      });
+    }
+  }
+
+  Future<void> _selectDepartureTime(BuildContext context) async{
+    final TimeOfDay? picked = await showTimePicker(context: context, 
+      initialTime: _departureTime ?? TimeOfDay.now()
+    );
+    if (picked != null){
+      setState(() {
+        _departureTime = picked;
+        _checkIfAllFieldsFilled();
+      });
+    }
+  }
+
+  Future<void> _selectReturnDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _returnDate ?? DateTime.now().add(const Duration(days: 7)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        _returnDate = picked;
+        _checkIfAllFieldsFilled();
+      });
+    }
+  }
+
+  Future<void> _selectReturnTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _returnTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _returnTime = picked;
+        _checkIfAllFieldsFilled();
+      });
+    }
+  }
+
+  void _incrementAdultCount() {
+    setState(() {
+      _adultCount++;
+    });
+  }
+
+  void _decrementAdultCount() {
+    if (_adultCount > 1) {
+      setState(() {
+        _adultCount--;
+      });
+    }
+  }
+
+  void _incrementChildCount() {
+    setState(() {
+      _childCount++;
+    });
+  }
+
+  void _decrementChildCount() {
+    if (_childCount > 0) {
+      setState(() {
+        _childCount--;
+      });
+    }
+  }
+
+  void _showSaveDiscardDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Save as Draft?'),
+          content: const Text('Do you want to save this trip as a draft or discard it?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                Navigator.pop(context); // Go back to the previous screen (Event Selection) and save as draft logic here
+              },
+              child: const Text('Save as Draft'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                Navigator.pop(context); // Go back to the previous screen (Event Selection) and discard logic here
+              },
+              child: const Text('Discard'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _navigateToNextPage() {
+    if (_isNextButtonEnabled) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => PersonalizedQuestion()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all the fields.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Create a trip"),
+        leading: IconButton(onPressed: _showSaveDiscardDialog, icon: Icon(Icons.arrow_back)),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              TextFormField(
+                controller: _tripNameController,
+                decoration: InputDecoration(labelText: 'Trip name'),
+                onChanged: (_) => _checkIfAllFieldsFilled(),
+              ),
+              SizedBox(height: 16.0,),
+              TextFormField(
+                controller: _destinationController,
+                decoration: InputDecoration(labelText: 'Destination'),
+                onChanged: (_) => _checkIfAllFieldsFilled(),
+              ),
+              SizedBox(height: 16.0,),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectDepartureDate(context),
+                      child: InputDecorator(
+                        decoration: InputDecoration(labelText: 'Departure date'),
+                        child: Text(_departureDate == null ? 'Select date' : DateFormat('yyyy-MM-dd').format(_departureDate!))
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16.0,),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectDepartureTime(context),
+                      child: InputDecorator(
+                        decoration: InputDecoration(labelText: "Departure time"),
+                        child: Text(_departureTime == null ? 'Select time' : _departureTime!.format(context)),
+                      )
+                    ),
+                  )
+                ]
+              ),
+              SizedBox(height: 16.0,),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectReturnDate(context),
+                      child: InputDecorator(
+                        decoration: InputDecoration(labelText: 'Return date'),
+                        child: Text(_returnDate == null ? 'Select date' : DateFormat('yyyy-MM-dd').format(_returnDate!))
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16.0,),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectReturnTime(context),
+                      child: InputDecorator(
+                        decoration: InputDecoration(labelText: "Return time"),
+                        child: Text(_returnTime == null ? 'Select time' : _returnTime!.format(context)),
+                      )
+                    ),
+                  )
+                ]
+              ),
+              SizedBox(height: 16.0),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Text('Adults'),
+                  Row(
+                    children: <Widget>[
+                      IconButton(onPressed: _decrementAdultCount, icon: Icon(Icons.remove)),
+                      Text('$_adultCount'),
+                      IconButton(onPressed: _incrementAdultCount, icon: Icon(Icons.add)),
+                    ],
+                  )
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Text('Children'),
+                  Row(
+                    children: <Widget>[
+                      IconButton(onPressed: _decrementChildCount, icon: Icon(Icons.remove)),
+                      Text('$_childCount'),
+                      IconButton(onPressed: _incrementChildCount, icon: Icon(Icons.add)),
+                    ],
+                  )
+                ],
+              ),
+              SizedBox(height: 16.0),
+              TextFormField(
+                controller: _transportationController,
+                decoration: InputDecoration(
+                  labelText: 'Preferred transportation'
+                ),
+                onChanged: (_) => _checkIfAllFieldsFilled(),
+              ),
+              SizedBox(height: 32.0),
+              ElevatedButton(
+                onPressed: _isNextButtonEnabled ? _navigateToNextPage : null,
+                child: const Text('Next'),
+              ),
+            ],
+          )
+        ),
+      )
+    );
+  }
+}
