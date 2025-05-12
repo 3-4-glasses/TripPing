@@ -27,35 +27,4 @@ export interface Itinerary {
 }
 
 
-export interface ItineraryQuery {
-    location?: string[];
-    priceRange?: string[];
-    priceLevel?: number[];
-    type?: string[];
-    isGoodForChildren?: boolean[];
-    isGoodForGroups?: boolean[];
-    servesBeer?: boolean[];
-    servesBreakfast?: boolean[];
-    servesBrunch?: boolean[];
-    servesCocktail?: boolean[];
-    servesCoffee?: boolean[];
-    servesDessert?: boolean[];
-    servesDinner?: boolean[];
-    servesLunch?: boolean[];
-    servesVegetarianFood?: boolean[];
-    servesWine?: boolean[];
-    hasLiveMusic?: boolean[];
-    allowsDogs?: boolean[];
-    accessibilityOptions?: string[];
-    miscellaneous?: {
-      time: string;
-      activity: string;
-    }[];
-  }
-  
-export interface ItineraryDays {
-    [day: string]: ItineraryQuery;
-}
-
-
 
