@@ -20,9 +20,9 @@ const createTrip = async (req: Request, res: Response): Promise<any> => {
         if (!itineraries || !Array.isArray(itineraries) || itineraries.length === 0) {
             return res.status(400).json({ status: false, error: "itineraries must be a non-empty array" });
         }
-        const tripId = await tripService.createTrip(userId, tripData, itineraries);
-        return res.status(201).json({ status: true, tripId });
-    } catch (error) {
+        const tripId:string = await tripService.createTrip(userId, tripData, itineraries);
+        return res.status(201).json({ status: true, id:tripId });
+    } catch (error: any) {
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -47,7 +47,7 @@ const getItineraryIds = async(req:Request, res: Response): Promise<any>=>{
         
         const itineraries =await tripService.getItineraryIds(userId,tripId);
         return res.status(200).json({ status: true, ids: itineraries });
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -72,7 +72,7 @@ const getAllItinerary = async (req:Request, res:Response): Promise<any>=>{
 
         const iteneraries = await tripService.getAllItinerary(userId,tripId);
         return res.status(200).json({status:true, iteneraries:iteneraries})
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -90,7 +90,7 @@ const getAllTrip = async (req:Request, res:Response): Promise<any>=>{
 
         const trips = await tripService.getAllTrip(userId);
         return res.status(200).json({status:true,trips:trips});
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -124,7 +124,7 @@ const editActivity = async (req:Request, res:Response): Promise<any>=>{
         }
         await tripService.editActivity(userId,activityAddition,tripId,itineraryId);
         return res.status(201).json({status:true,message:"success"});
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -151,7 +151,7 @@ const addItem = async (req:Request, res:Response): Promise<any> =>{
         }
         await tripService.addItems(userId,tripId,item);
         return res.status(200).json({status:true,message:"success"});
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -162,7 +162,7 @@ const deleteItem = async (req:Request, res:Response): Promise<any>=>{
         const {userId, tripId, item} = req.body;
         await tripService.deleteItem(userId,tripId,item);
         return res.status(204).json({status:true,message:"success"});
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -186,7 +186,7 @@ const incrementExpenses = async (req: Request, res: Response): Promise<any> => {
         await tripService.incrementExpenses(userId, tripId, amount);
         
         return res.status(200).json({ status: true, message: 'success' });
-    } catch (error) {
+    } catch (error: any) {
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -196,7 +196,7 @@ const deleteEvent = async (req:Request, res:Response): Promise<any>=>{
         const { userId, tripId, itineraryId, activity} = req.body;
         await tripService.deleteEvent(userId,tripId,itineraryId,activity);
         return res.status(204).json({status:true,message:"success"});
-    }catch(error){
+    }catch(error: any){
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -216,7 +216,7 @@ const addVariableExpenses = async (req: Request, res: Response): Promise<any> =>
         await tripService.addVariableExpenses(userId, tripId, item);
 
         return res.status(200).json({ status: true, message: 'success' });
-    } catch (error) {
+    } catch (error: any) {
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -241,7 +241,7 @@ const setBudget = async (req: Request, res: Response): Promise<any> => {
         await tripService.setBudget(userId, tripId, amount);
         
         return res.status(200).json({ status: true, message: 'success' });
-    } catch (error) {
+    } catch (error: any) {
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }

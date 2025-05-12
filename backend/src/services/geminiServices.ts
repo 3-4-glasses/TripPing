@@ -68,7 +68,7 @@ async function  extractItienaryFeatures(input: string): Promise<string> {
   return text.trim();
 }
 
-function getParams(item){
+function getParams(item: any){
       const query = item.query ?? "";
       if (!query) return; // Skip if required field is missing
 

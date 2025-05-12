@@ -10,9 +10,9 @@ const validateInput = async (req: Request, res: Response):Promise<any>=>{
     const {input} = req.body;
     const validity:boolean = await geminiService.validateInput(input);
     return res.status(201).json({ status: true, valid:validity });
-  } catch (error) {
+  } catch (error: any) {
     return res.status(500).json({ status: false, error: error.message || error});
-  }
+  } 
 }
 
 const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
@@ -54,12 +54,12 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
     const finalizeActivity: Activity[] = await geminiService.itenararyAI(previousActivty,input);
     const editActivityStatus:boolean = await editActivity(userId,finalizeActivity,tripId,itineraryId);
     if(editActivityStatus){
-      return res.status(201).json({ status: true, message:"success" });
+      return res.status(201).json({ status: true, updatedActivity:finalizeActivity });
     }else{
       return res.status(400).json({ status: true, message:"activity needs to be an array" });
     }
 
-  } catch(error){
+  } catch(error: any){
     console.log(`error on addItineraryAI ${error}`);
     throw error
   }
@@ -100,9 +100,9 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
     let finalizeJSON;
     try {
       finalizeJSON = typeof finalize === "string" ? JSON.parse(finalize) : finalize;
-    } catch (err) {
+    } catch (err: any) {
       console.error("Parsing finalized result failed:", finalize);
-      throw new err;
+      throw err;
     }
 
     const tripData = {
@@ -144,7 +144,7 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
       }
     }
 
-    const createdTripId = createTrip(userId,tripData,itineraryArray);
+    const createdTripId = await createTrip(userId,tripData,itineraryArray);
 
     return res.status(200).json({
       status: true,

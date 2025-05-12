@@ -5,11 +5,13 @@ import admin from 'firebase-admin';
 // Convert to express functions
 dotenv.config();
 
-const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS as string);
+const serviceAccount = require(process.env.FIREBASE_SERVICE_ACC as string);
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 
 const db = admin.firestore();
 

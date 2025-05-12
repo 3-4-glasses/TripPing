@@ -43,13 +43,13 @@ Itinerary
 
 // From flutter pass jsonEncode
 
+const serviceAccount = require(process.env.FIREBASE_SERVICE_ACC as string);
 
-const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS as string);
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 const db = admin.firestore();
 
 async function isUserExist(userId: string): Promise<boolean>{
@@ -79,43 +79,41 @@ async function isItineraryExist(userId: string, tripId:string,itineraryId:string
     }
 }
 
-async function createTrip(userId: string, tripData: any, itineraries: Itinerary[]): Promise<string>  {
-    console.log(`error on createTrip, args userId ${userId} tripData ${tripData} itenerary ${itineraries}`);
+async function createTrip(userId: string, tripData: any, itineraries: Itinerary[]): Promise<string> {
     try {
         const tripRef = db.collection("users").doc(userId).collection("trips").doc();
+        console.log(`Created tripRef with ID: ${tripRef.id!}`); // Log to verify ID
         await tripRef.set(tripData); // Create the trip
         
         // Create a batch to add multiple itineraries to the trip
         const batch = db.batch();
         itineraries.forEach(itinerary => {
-        const itineraryRef = tripRef.collection("itinerary").doc(); // Create a new itinerary doc
-        const itineraryDate=new Date(itinerary.date);
-        const activites = itinerary.activities.map((activity: any) => ({
-            from: new Date(activity.from),
-            to: new Date(activity.to),
-            title: activity.title,
-            details: activity.details,
-            location: new admin.firestore.GeoPoint(activity.location.latitude, activity.location.longitude),}
-        ));
-        
-        const itineraryObj = {
-            date:itineraryDate,
-            activities:activites
-        };
+            const itineraryRef = tripRef.collection("itinerary").doc();
+            const itineraryDate = new Date(itinerary.date);
+            const activities = itinerary.activities.map((activity: any) => ({
+                from: new Date(activity.from),
+                to: new Date(activity.to),
+                title: activity.title,
+                details: activity.details,
+                location: new admin.firestore.GeoPoint(activity.location.latitude, activity.location.longitude),
+            }));
 
-        batch.set(itineraryRef, itineraryObj); // Add each itinerary to the batch
+            const itineraryObj = {
+                date: itineraryDate,
+                activities: activities
+            };
+
+            batch.set(itineraryRef, itineraryObj);
         });
 
-        // Commit the batch to Firestore
         await batch.commit();
-
-        return tripRef.id; // Return the trip ID
-    } catch (error) {
-        console.log(`error on createTrip, args userId ${userId} tripData ${tripData} itenerary ${itineraries}`);
-        console.log(`error ${error}`);
-        throw error
+        return tripRef.id!; // Return the trip ID
+    } catch (error:any) {
+        console.error(`Error in createTrip: ${error.message}`);
+        throw error;
     }
 }
+
 
 // Get all itinerary IDs for a given trip
 async function getItineraryIds(userId: string, tripId: string): Promise<string[]> {
@@ -159,7 +157,7 @@ async function getAllItinerary(userId: string, tripId: string):Promise<Itinerary
     tripSnap.forEach((doc) => {
         const data = doc.data();
         res.push({
-        id: doc.id, // The itinerary ID (document ID)
+        id: doc.id!, // The itinerary ID (document ID)
         date: data.date.toDate(),
         activities:data.activities
         });
@@ -181,7 +179,7 @@ async function getAllTrip(userId: string): Promise<Trip[]> {
     tripSnap.forEach((doc)=>{
       const data = doc.data();
       AllTrip.push({
-        id:doc.id,
+        id:doc.id!,
         from:data.from,
         to:data.to,
         expensesUsed:data.expensesUsed,

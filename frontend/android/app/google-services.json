@@ -12,7 +12,20 @@
           "package_name": "sixteeneyes.tripPing.apacsolchallenge"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "412321340776-j8nfg8mjfq5h2ri4b8nhiakrdk5d19sh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "sixteeneyes.tripPing.apacsolchallenge",
+            "certificate_hash": "4b9680b566049b2bea7a6fd75e5f1a45f5b67c34"
+          }
+        },
+        {
+          "client_id": "412321340776-objbi7kf41vn6n47gesqr3bvf4uc9bpo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAmS3DjfbjwzCNUVteNSghQv58YpZ4FW2M"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "412321340776-objbi7kf41vn6n47gesqr3bvf4uc9bpo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

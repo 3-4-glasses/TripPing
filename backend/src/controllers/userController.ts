@@ -10,7 +10,7 @@ const registerUser = async (req: Request, res: Response):Promise<any>=>{
     const userId = await userService.registerUser(user_name, email, password);
     await userService.initUser(userId,user_name);
     return res.status(201).json({ status: true, userId:userId });
-  } catch (error) {
+  } catch (error: any) {
     return res.status(500).json({ status: false, error: error.message || error});
   }
 }
@@ -20,7 +20,7 @@ const verifyidToken = async (req: Request, res: Response):Promise<any>=>{
     const tokenReq = req.body;
     const decodedToken = await userService.verifyToken(tokenReq);
     return res.status(201).json({status: true, decodedToken});
-  } catch(error){
+  } catch(error: any){
     return res.status(500).json({ status:false, error: error.message || error});
   }
 }
@@ -29,9 +29,10 @@ const verifyidToken = async (req: Request, res: Response):Promise<any>=>{
 const initializeUser = async (req: Request, res: Response):Promise<any> => {
   try{
     const {userId, userName} = req.body;
+    
     await userService.initUser(userId,userName);
     return res.status(201).json({status:true, message:"success"})
-  }catch(error){
+  }catch(error: any){
     return res.status(500).json({ status:false, error: error.message || error});
   }
 }
