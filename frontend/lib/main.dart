@@ -49,7 +49,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
         String? idToken = await user.getIdToken();
         // Pass the token to the backend, returns success and decoded user info
       }
-        // Navigate to the home screen (or wherever needed)
+      // Navigate to the home screen (or wherever needed)
 
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -58,15 +58,13 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
     }
   }
 
-
   Future<void> signInWithGoogle() async {
     try {
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication? googleAuth = await googleUser
-          ?.authentication;
+      final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -74,18 +72,21 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
         idToken: googleAuth?.idToken,
       );
 
-      UserCredential userCred = await FirebaseAuth.instance
-          .signInWithCredential(credential);
+      UserCredential userCred = await FirebaseAuth.instance.signInWithCredential(credential);
       User? user = userCred.user;
       String? tokenId = await user?.getIdToken();
-    }on FirebaseAuthException catch (e) {
+
+      // Handle navigation or user info after successful Google sign-in
+      // Navigate to the home screen (or wherever needed)
+
+    } on FirebaseAuthException catch (e) {
       setState(() {
         errorMessage = e.message ?? "An error occurred during sign-in!";
       });
     }
   }
 
-  Future<void> registerUser() async{
+  Future<void> registerUser() async {
     try {
       final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -195,9 +196,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                     child: SizedBox(
                       width: 300,
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          // Handle Google login logic here
-                        },
+                        onPressed: signInWithGoogle, // Call Google sign-in method
                         icon: Image.network(
                           'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
                           height: 24,
@@ -234,9 +233,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                     child: SizedBox(
                       width: 300,
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          // Handle registration logic
-                        },
+                        onPressed: registerUser, // Call registerUser method
                         icon: Icon(Icons.app_registration_rounded),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
