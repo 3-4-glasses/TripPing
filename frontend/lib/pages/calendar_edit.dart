@@ -634,7 +634,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
                     },
@@ -644,7 +644,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextButton(
+                  child: ElevatedButton(
                     onPressed: () {
                       _confirmChanges();
                     },

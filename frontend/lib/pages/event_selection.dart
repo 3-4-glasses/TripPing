@@ -4,46 +4,50 @@ import 'package:apacsolchallenge/pages/general_question.dart';
 import 'package:apacsolchallenge/pages/main_page.dart';
 import '../data/global_trip_data.dart';
 import '../data/trip_data.dart';
-
-final tripData = GlobalTripData.instance.tripData; // Access the global TripData instance
+import 'package:provider/provider.dart'; 
 
 class EventSelection extends StatelessWidget {
   const EventSelection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              floating: true,
-              pinned: true,
-              elevation: 0,
-              title: const Text(
-                'Available Plans',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 24.0,
-                  fontWeight: FontWeight.bold,
+    // Wrap the widget that uses GlobalTripData with a Consumer.
+    return Consumer<GlobalTripData>(
+      builder: (context, globalTripData, child) {
+        final List<Trip> availableTrips = globalTripData.tripData.trips.value;
+        return Scaffold(
+          body: SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  floating: true,
+                  pinned: true,
+                  elevation: 0,
+                  title: const Text(
+                    'Available Plans',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 24.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  centerTitle: false,
+                  automaticallyImplyLeading: false,
                 ),
-              ),
-              centerTitle: false,
-              automaticallyImplyLeading: false,
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  sliver: _buildAvailablePlansList(context, availableTrips), // Pass availableTrips
+                ),
+              ],
             ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              sliver: _buildAvailablePlansList(context),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
+          ),
+          bottomNavigationBar: _buildBottomNavigationBar(context),
+        );
+      },
     );
   }
 
-  Widget _buildAvailablePlansList(BuildContext context) {
-    final List<Trip> availableTrips = tripData.trips.value;
+  Widget _buildAvailablePlansList(BuildContext context, List<Trip> availableTrips) {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -88,9 +92,19 @@ class EventSelection extends StatelessWidget {
                             color: Colors.black87,
                           ),
                         ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Colors.grey.shade600,
+                        Row( // Added for delete icon
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                _showDeleteConfirmationDialog(context, trip.id); // Show dialog
+                              },
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: Colors.grey,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -105,38 +119,65 @@ class EventSelection extends StatelessWidget {
     );
   }
 
+  void _showDeleteConfirmationDialog(BuildContext context, String tripId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Are you sure?'),
+          content: const Text('Do you want to delete this trip?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Cancel
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                // Get the GlobalTripData instance using Provider
+                final globalTripData = Provider.of<GlobalTripData>(context, listen: false);
+                globalTripData.deleteTrip(tripId); // Delete the trip
+                Navigator.of(context).pop(true); // Close the dialog
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildBottomNavigationBar(BuildContext context) {
-   return BottomNavigationBar(
-    items: const <BottomNavigationBarItem>[ // Added const here
-      BottomNavigationBarItem(
-        icon: Icon(Icons.home),
-        label: 'Home',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.add),
-        label: 'Add Trip',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.calendar_today),
-        label: 'See Trips',
-      ),
-    ],
-    currentIndex: 2, //  Consider making this a state variable if it changes
-    onTap: (index) {
-      // 0: Home, 1: Add Trip, 2: See Trips
-      switch (index) {
-        case 0: 
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainPage()));
-          break;
-        case 1:
-          Navigator.push(context, MaterialPageRoute(builder: (context) => GeneralQuestion()));
-          break;
-        case 2:
-          break;
-        default:
-          break;
-      }
-    },
-  ); 
+    return BottomNavigationBar(
+      items: const <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.add),
+          label: 'Add Trip',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.calendar_today),
+          label: 'See Trips',
+        ),
+      ],
+      currentIndex: 2,
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainPage()));
+            break;
+          case 1:
+            Navigator.push(context, MaterialPageRoute(builder: (context) => GeneralQuestion()));
+            break;
+          case 2:
+            break;
+          default:
+            break;
+        }
+      },
+    );
   }
 }
+

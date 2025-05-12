@@ -68,23 +68,23 @@ class GlobalTripData extends ChangeNotifier{
     );
 
     final itinerary1 = Itinerary(
-      date: "2025-05-12",
+      date: "2025-05-13",
       activities: [activity1, activity2, activity5],
     );
     final itinerary2 = Itinerary(
-      date: "2025-05-13",
+      date: "2025-05-14",
       activities: [activity3],
     );
     final itinerary3 = Itinerary(
-      date: "2025-05-14",
+      date: "2025-05-15",
       activities: [activity4],
     );
 
     final trip1 = Trip(
       id: 'trip1',
       name: ValueNotifier<String>('Bali Adventure'),
-      dateFrom: ValueNotifier<String?>('2025-05-12'),
-      dateTo: ValueNotifier<String?>('2025-05-14'),
+      dateFrom: ValueNotifier<String?>('2025-05-13'),
+      dateTo: ValueNotifier<String?>('2025-05-15'),
       expensesUsed: ValueNotifier<double>(250.0),
       expensesLimit: ValueNotifier<double>(1000.0),
       items: ValueNotifier<List<String>>(['Sunscreen', 'Hat']),
