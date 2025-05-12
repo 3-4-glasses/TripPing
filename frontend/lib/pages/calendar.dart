@@ -78,9 +78,6 @@ class _CalendarState extends State<Calendar> {
         );
       }
     }
-    print("All Events: ");
-    print(allEvents);
-
     return allEvents;
   }
 
@@ -98,11 +95,7 @@ class _CalendarState extends State<Calendar> {
     if (updatedEvents != null) {
       setState(() {
         _events = updatedEvents;
-        print("Updated Events:");
-        print(updatedEvents);
         _selectedEvents = CalendarUtils.getEventsForDay(_events, _selectedDay ?? _focusedDay);
-        print("Handle Edit Result:");
-        print(_selectedEvents);
         _updateTripItineraries(updatedEvents);
         GlobalTripData.instance.notifyListeners();
       });
@@ -112,7 +105,7 @@ class _CalendarState extends State<Calendar> {
   }
 
   void _updateTripItineraries(List<Event> updatedEvents){
-    Map<String, Itinerary> existingItineraries = Map.from(_trip.itineraries); //copy
+    Map<String, Itinerary> existingItineraries = Map.from(_trip.itineraries); 
     _trip.itineraries.clear(); // Clear existing itineraries at the beginning
 
     final groupedEvents = groupBy(updatedEvents, (Event event) => event.startDate);
@@ -121,14 +114,12 @@ class _CalendarState extends State<Calendar> {
       String formattedDate = DateFormat('yyyy-MM-dd').format(date);
       String dayKey;
 
-      //check if the date exists
       if(existingItineraries.values.any((itinerary) => itinerary.date == formattedDate)){
         dayKey = existingItineraries.keys.firstWhere((key) => existingItineraries[key]!.date == formattedDate);
       }
       else{
          dayKey = "day${_trip.itineraries.length + 1}";
       }
-
 
       List<Activity> activitiesForDate = eventsForDate.map((event) {
         return Activity(
@@ -138,10 +129,6 @@ class _CalendarState extends State<Calendar> {
           details: event.notes,
         );
       }).toList();
-
-      print("Formatted Date: $formattedDate");
-      print("Activities For Date: $activitiesForDate");
-      print("Day Key: $dayKey");
 
       // Combine with existing activities if the dayKey already exists
       if (_trip.itineraries.containsKey(dayKey)) {
@@ -167,8 +154,8 @@ class _CalendarState extends State<Calendar> {
       body: Column(
         children: [
           TableCalendar(
-            firstDay: DateTime.utc(2010, 10, 16),
-            lastDay: DateTime.utc(2030, 3, 14),
+            firstDay: DateTime.utc(2010, 1, 1),
+            lastDay: DateTime.utc(2040, 1, 1),
             focusedDay: _focusedDay,
             calendarFormat: _calendarFormat,
             selectedDayPredicate: (day) {
@@ -224,18 +211,21 @@ class _CalendarState extends State<Calendar> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                _selectedDay != null
-                    ? 'Events on ${DateFormat('MMM d, yyyy').format(_selectedDay!)}'
-                    : 'Select a day to see events',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  _selectedDay != null
+                      ? ''
+                      : 'Select a day to see events',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -270,7 +260,7 @@ class _CalendarState extends State<Calendar> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const RemindersPage()),
+                      MaterialPageRoute(builder: (context) => RemindersPage(trip: _trip)),
                     );
                   },
                   icon: const Icon(Icons.notifications),
@@ -280,30 +270,6 @@ class _CalendarState extends State<Calendar> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Add Trip',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'See Trips',
-          ),
-        ],
-        currentIndex: 2,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const Placeholder()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const Placeholder()));
-          }
-        },
       ),
     );
   }

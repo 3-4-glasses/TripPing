@@ -152,29 +152,29 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
 
   // Function to check for time conflicts
   bool _checkTimeConflict(
-      DateTime startDate, DateTime endDate, TimeOfDay startTime, TimeOfDay endTime,
+    DateTime startDate, DateTime endDate, TimeOfDay startTime, TimeOfDay endTime,
       [int? excludeIndex]) {
     for (int i = 0; i < _allEvents.length; i++) {
       if (i == excludeIndex) continue; // Skip the event being edited
       final existingEvent = _allEvents[i];
-      //check if the event overlaps
-      if (startDate.isBefore(existingEvent.endDate) &&
-          endDate.isAfter(existingEvent.startDate)) {
-        // Check for any overlap in time.
-        if (startTime.hour < existingEvent.timeEnd.hour ||
-            (startTime.hour == existingEvent.timeEnd.hour &&
-                startTime.minute < existingEvent.timeEnd.minute))
-        {
-           if (endTime.hour > existingEvent.timeStart.hour ||
-            (endTime.hour == existingEvent.timeStart.hour &&
-                endTime.minute > existingEvent.timeStart.minute))
-           {
-             return true; // Conflict found
-           }
-        }
+      
+      // Combine existing event's start and end dates with their times
+      final existingStartDateTime = CalendarUtils.combineDateAndTime(
+          existingEvent.startDate, existingEvent.timeStart);
+      final existingEndDateTime = CalendarUtils.combineDateAndTime(
+          existingEvent.endDate, existingEvent.timeEnd);
+      
+      // New event's datetime
+      final newStartDateTime = CalendarUtils.combineDateAndTime(startDate, startTime);
+      final newEndDateTime = CalendarUtils.combineDateAndTime(endDate, endTime);
+      
+      // Check if the events overlap in both date and time
+      if (newStartDateTime.isBefore(existingEndDateTime) && 
+          newEndDateTime.isAfter(existingStartDateTime)) {
+        return true; // Conflict found
       }
     }
-    return false; // No conflict
+    return false; 
   }
 
   void _addOrUpdateEvent() {
@@ -345,8 +345,8 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
       body: Column(
         children: [
           TableCalendar(
-            firstDay: DateTime.utc(2010, 10, 16),
-            lastDay: DateTime.utc(2030, 3, 14),
+            firstDay: DateTime.utc(2010, 1, 1),
+            lastDay: DateTime.utc(2040, 1, 1),
             focusedDay: _focusedDay,
             calendarFormat: _calendarFormat,
             selectedDayPredicate: (day) {
@@ -422,19 +422,11 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _selectedDay != null
-                        ? 'Editing events for ${DateFormat('EEEE, MMMM d, y').format(_selectedDay!)}'
-                        : 'Select a day to edit events',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Events for this day:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
                   _selectedEvents.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Text('No events for this day.'),
+                      ? const Column(
+                          children: [
+                            Text("No events for this day")
+                          ],
                         )
                       : ListView.builder(
                           shrinkWrap: true,
@@ -652,7 +644,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: ElevatedButton(
+                  child: TextButton(
                     onPressed: () {
                       _confirmChanges();
                     },
@@ -668,3 +660,4 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     );
   }
 }
+

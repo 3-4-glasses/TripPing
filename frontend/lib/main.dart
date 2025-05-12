@@ -1,4 +1,4 @@
-import 'package:apacsolchallenge/widget_tree.dart';
+import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
 import 'data/global_trip_data.dart';
 
@@ -16,9 +16,9 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.cyan),
       ),
-      home: WidgetTree()
+      home: MainPage()
     );
   }
 }

@@ -1,9 +1,11 @@
 import 'package:apacsolchallenge/pages/event_selection.dart';
 import 'package:apacsolchallenge/pages/general_question.dart';
+import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/global_trip_data.dart'; // Import for GlobalTripData
 import '../data/trip_data.dart';
+
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -230,7 +232,6 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
           ),
-          IconButton(onPressed: () {}, icon: Icon(Icons.chevron_right))
         ],
       ),
     );
@@ -246,7 +247,12 @@ class _MainPageState extends State<MainPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Ongoing itinerary", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              IconButton(onPressed: () {}, icon: Icon(Icons.settings))
+              IconButton(onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context){
+                  return Calendar(tripId: closestTrip.id);
+                }));
+              },
+              icon: Icon(Icons.settings))
             ],
           ),
           SizedBox(height: 6),
@@ -265,7 +271,20 @@ class _MainPageState extends State<MainPage> {
                 ),
                 SizedBox(height: 10),
                 // Display a maximum of 3 events in a day.
-                ...relevantActivities.take(3).map((event) => _buildEventItem(event)),
+                Column(
+                  children: <Widget>[
+                    if (relevantActivities.isNotEmpty)
+                      ...relevantActivities.take(3).map((event) => _buildEventItem(event))
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          "No more activities for today!",
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                  ],
+                )
               ],
             ),
           )
@@ -298,10 +317,9 @@ class _MainPageState extends State<MainPage> {
   }
 }
 
-
 Widget _buildBottomNavigationBar(BuildContext context) {
   return BottomNavigationBar(
-    items: <BottomNavigationBarItem>[
+    items: const <BottomNavigationBarItem>[ // Added const here
       BottomNavigationBarItem(
         icon: Icon(Icons.home),
         label: 'Home',
@@ -315,18 +333,22 @@ Widget _buildBottomNavigationBar(BuildContext context) {
         label: 'See Trips',
       ),
     ],
-    currentIndex: 0,
+    currentIndex: 0, //  Consider making this a state variable if it changes
     onTap: (index) {
-      if (index == 1) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) {
-          return GeneralQuestion();
-        }));
+      // 0: Home, 1: Add Trip, 2: See Trips
+      switch (index) {
+        case 1: 
+          Navigator.push(context, MaterialPageRoute(builder: (context) => GeneralQuestion()));
+          break;
+        case 2: // 'See Trips'
+          // *IMPORTANT*:  Use push instead of pushReplacement.
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventSelection()));
+          break;
+        case 0:
+          break;
+        default:
+          break;
       }
-      else if (index == 2) {
-        Navigator.push(context, MaterialPageRoute(builder: (context) {
-          return EventSelection();
-        }));
-      } 
     },
   );
 }

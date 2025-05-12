@@ -50,7 +50,7 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
       _departureDate != null &&
       _departureTime != null &&
       _returnDate != null &&
-      _returnTime != null &&  // Fixed: was checking _returnDate twice
+    _returnTime != null &&  // Fixed: was checking _returnDate twice
       _transportationController.text.isNotEmpty;
     });
   }
@@ -141,22 +141,21 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Save as Draft?'),
-          content: const Text('Do you want to save this trip as a draft or discard it?'),
+          title: const Text('Save?'),
+          content: const Text('Do you want to save?'),
           actions: <Widget>[
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
-                Navigator.pop(context); // Go back to the previous screen (Event Selection) and save as draft logic here
               },
-              child: const Text('Save as Draft'),
+              child: const Text('No'),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
-                Navigator.pop(context); // Go back to the previous screen (Event Selection) and discard logic here
+                Navigator.of(context).pop(); // Go back to the previous screen
               },
-              child: const Text('Discard'),
+              child: const Text('Yes'),
             ),
           ],
         );
