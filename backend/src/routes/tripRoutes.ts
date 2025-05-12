@@ -1,10 +1,9 @@
 import express from 'express';
 import {
-  createTrip,
   getItineraryIds,
   getAllItinerary,
   getAllTrip,
-  addActivity,
+  editActivity,
   addItem,
   deleteItem,
   incrementExpenses,
@@ -21,7 +20,7 @@ tripRouter.get('/itineraries', getAllItinerary);
 
 tripRouter.get('/all', getAllTrip);
 
-tripRouter.post('/activity', addActivity);
+tripRouter.post('/activity', editActivity);
 
 tripRouter.post('/item', addItem);
 

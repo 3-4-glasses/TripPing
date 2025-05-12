@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 import {Client,TextSearchRequest,PlaceType1,LatLng} from '@googlemaps/google-maps-services-js';
+import { Activity } from "../struct";
 
 
 dotenv.config();
@@ -28,7 +29,7 @@ async function validateInput(input: string): Promise<boolean>{
   return text.trim().toLowerCase() === 'true';
 }
 
-async function extractItienaryFeatures(input: string): Promise<string> {
+async function  extractItienaryFeatures(input: string): Promise<string> {
   const systemInst = `
     You are a helpful itinerary planning assistant. Your task is to extract structured information from a free-text travel description written by a user.
     The user's message may contain destination, travel dates, daily plans, activity preferences, time references, and miscellaneous instructions.
@@ -36,7 +37,7 @@ async function extractItienaryFeatures(input: string): Promise<string> {
     miscellaneous if it doenst fit the other fields, the miscellaneous array shape doesnt have to fit the other field's shape
     Return the data in the following in a strict JSON format, no explanations:
     {
-      "day1": {
+      "{
         "activityTime":[string]
         "textExplanation": [string]
         "location": [string],
@@ -58,23 +59,163 @@ async function extractItienaryFeatures(input: string): Promise<string> {
         "hasLiveMusic": [boolean],
         "allowsDogs": [boolean],
         "accessibilityOptions": [string],
-        "miscellaneous": [
-          {
-            "time": "HH:MM or label like 'morning' or 'afternoon'",
-            "activity": "string"
-          },{
-            "time": "HH:MM or label like 'morning' or 'afternoon'",
-            "activity": "string"
-          }
-        ]
-      },
-      "day2": { ... }
+      }
     }
   `;
   const result = await model.generateContent([systemInst, input]);
   const response = await result.response;
   const text = await response.text();
   return text.trim();
+}
+
+function getParams(item){
+      const query = item.query ?? "";
+      if (!query) return; // Skip if required field is missing
+
+      const type = item.type ?? undefined;
+      const region = item.region ?? undefined;
+      const radius = typeof item.radius === "number" ? item.radius : undefined;
+      const minprice = typeof item.minprice === "number" ? item.minprice : undefined;
+      const maxprice = typeof item.maxprice === "number" ? item.maxprice : undefined;
+      const location = item.location;
+      const lat = location?.latitude;
+      const lng = location?.longitude;
+      const hasValidLocation = typeof lat === "number" && typeof lng === "number";
+
+      const request: TextSearchRequest["params"] = {
+        query,
+        key: process.env.GEMINI_API_KEY!,
+        ...(type && { type: type as PlaceType1 }),
+        ...(region && { region }),
+        ...(radius !== undefined && hasValidLocation && { radius }),
+        ...(minprice !== undefined && { minprice }),
+        ...(maxprice !== undefined && { maxprice }),
+        ...(hasValidLocation && {
+          location: { lat, lng } as LatLng,
+        }),
+      };
+      return request;
+}
+
+async function itenararyAI(previousActivity:Activity[] ,input: string): Promise<Activity[]> {
+  const systemInst = `
+    You are an assistant that generates Google Places Text Search API query JSON.
+    Your task is to extract structured information from a free-text plan description written by a user, to be used as a complement to the existing activities.
+    The user's message may contain destination, travel dates, activity preferences, time references, and miscellaneous instructions.
+    Make sure it matches the previous activities provided, and according to the user's plan
+    Return the data in the following in a strict JSON format, no explanations:
+    Activities:[{
+      location?: {
+        longitude: number 
+        latitude: number
+      };
+      maxprice?: number;
+      minprice?: number;
+      query: string;
+      radius?: number;
+      region?: string;
+      type?: string;
+      }
+    },{
+      location?: {
+        longitude: number 
+        latitude: number
+      };
+      maxprice?: number;
+      minprice?: number;
+      query: string;
+      radius?: number;
+      region?: string;
+      type?: string;
+      }
+    }]
+    -  Set "location's longitude and latitude" using a known coordinate (if unavailable, omit).
+    =  If there are tags such as the ones below, add it to the query string
+        "location": [string],
+        "priceRange": [string],
+        "priceLevel": [number],
+        "type": [string],
+        "isGoodForChildren": [boolean],
+        "isGoodForGroups": [boolean],
+        "servesBeer": [boolean],
+        "servesBreakfast": [boolean],
+        "servesBrunch": [boolean],
+        "servesCocktail": [boolean],
+        "servesCoffee": [boolean],
+        "servesDessert": [boolean],
+        "servesDinner": [boolean],
+        "servesLunch": [boolean],
+        "servesVegetarianFood": [boolean],
+        "servesWine": [boolean],
+        "hasLiveMusic": [boolean],
+        "allowsDogs": [boolean],
+        "accessibilityOptions": [string],
+  `;
+  const result = await model.generateContent([systemInst, `User's input: ${input} Previous activities: ${previousActivity}`]);
+  const response = await result.response;
+  const text = await response.text();
+  let parsed;
+  
+  try{ 
+    parsed = JSON.parse(text);
+  } catch (error) {
+    console.error("Failed to parse Gemini response:", error);
+    console.error("Raw output:", text);
+    throw error;
+  }
+  const addActivityRes: any[] = [];
+  if (Array.isArray(parsed.Activities)) {
+    for (const activity of parsed.Activities) {
+      const request = getParams(activity);
+      if(!request) continue;
+      try {
+        const res = await client.textSearch({ params: request });
+        addActivityRes.push(res.data);
+      } catch (error) {
+        console.error(`Failed request for:`, error);
+        throw error;
+      }
+    }
+  } else {
+    console.error("Invalid or missing Activities array");
+  }
+  const cleanUpInst = `
+    You are a smart travel assistant that creates detailed, well-paced, daily travel itineraries.
+    Your job is to clean up and select the most appropiate place according to the user's wants, as well as organizing it too,
+    please return it in a strict json format such as the ones below:
+    [
+      {
+        "from": "09:00",
+        "to": "10:30",
+        "title": "Visit Tanah Lot Temple",
+        "location": {
+          "latitude": -8.6216,
+          "longitude": 115.0866
+        },
+        "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions."
+      },
+      {
+        "from": "11:00",
+        "to": "12:00",
+        "title": "Local market tour",
+        "details": "Support local artisans by exploring handmade crafts and regional food."
+      },
+      ...
+    ]
+  `
+  const resultClean = await model.generateContent([systemInst, `User's input: ${input} Proposed places: ${addActivityRes}`]);
+  const responseClean = await result.response;
+  const textClean = await response.text();
+  let parsedCleanedActivities: Activity[];
+  try {
+    parsedCleanedActivities = JSON.parse(textClean);
+  } catch (error) {
+    console.error("Failed to parse Gemini response:", error);
+    console.error("Raw output:", textClean);
+    throw error;
+  }
+  return previousActivity.concat(parsedCleanedActivities);
+
 }
 async function cleanJSON(input:string){
   const placeJson: Record<string, any> = {};
@@ -230,35 +371,8 @@ Instructions:
     dayResults[day] = [];
     for (const item of queries) {
       // Use optional chaining and nullish coalescing for safe access
-      const query = item.query ?? "";
-      if (!query) continue; // Skip if required field is missing
-
-      const type = item.type ?? undefined;
-      const region = item.region ?? undefined;
-      const radius = typeof item.radius === "number" ? item.radius : undefined;
-      const minprice = typeof item.minprice === "number" ? item.minprice : undefined;
-      const maxprice = typeof item.maxprice === "number" ? item.maxprice : undefined;
-      const opennow = typeof item.opennow === "boolean" ? item.opennow : undefined;
-      const pagetoken = item.pagetoken ?? undefined;
-
-      const location = item.location;
-      const lat = location?.latitude;
-      const lng = location?.longitude;
-      const hasValidLocation = typeof lat === "number" && typeof lng === "number";
-
-      const request: TextSearchRequest["params"] = {
-        query,
-        key: process.env.GEMINI_API_KEY!,
-        ...(type && { type: type as PlaceType1 }),
-        ...(region && { region }),
-        ...(radius !== undefined && hasValidLocation && { radius }),
-        ...(minprice !== undefined && { minprice }),
-        ...(maxprice !== undefined && { maxprice }),
-        ...(hasValidLocation && {
-          location: { lat, lng } as LatLng,
-        }),
-      };
-      
+      const request = getParams(item);
+      if(!request) continue;
     
       try {
         const res = await client.textSearch({ params: request });
@@ -368,4 +482,4 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
   return planned;
 }
 
-export {validateInput, extractItienaryFeatures, cleanJSON, getQuery, processAI}
+export {itenararyAI,validateInput, extractItienaryFeatures, cleanJSON, getQuery, processAI}

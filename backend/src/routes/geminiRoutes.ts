@@ -1,9 +1,10 @@
 import express from 'express';
 import * as geminiController from "../controllers/geminiController";
 
-const geminirouter = express.Router();
+const geminiRouter = express.Router();
 
-geminirouter.post("/validate", geminiController.validateInput)
-geminirouter.post("/itinerary", geminiController.handleItinerary);
+geminiRouter.post("/editItenerary",geminiController.addItineraryAI);
+geminiRouter.post("/validate", geminiController.validateInput);
+geminiRouter.post("/itinerary", geminiController.handleItinerary);
 
-export default geminirouter;
+export default geminiRouter;

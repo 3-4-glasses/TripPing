@@ -95,7 +95,7 @@ const getAllTrip = async (req:Request, res:Response): Promise<any>=>{
     }
 }
 
-const addActivity = async (req:Request, res:Response): Promise<any>=>{
+const editActivity = async (req:Request, res:Response): Promise<any>=>{
     try{
         const {userId, activityAddition, tripId, itineraryId} = req.body;
         if(!userId || userId === ''){
@@ -122,7 +122,7 @@ const addActivity = async (req:Request, res:Response): Promise<any>=>{
         if (!activityAddition || !activityAddition.from || !activityAddition.to || !activityAddition.title) {
             return res.status(400).json({ status: false, error: "Invalid activity structure" });
         }
-        await tripService.addActivity(userId,activityAddition,tripId,itineraryId);
+        await tripService.editActivity(userId,activityAddition,tripId,itineraryId);
         return res.status(201).json({status:true,message:"success"});
     }catch(error){
         return res.status(500).json({ status: false, error: error.message || error });
@@ -248,6 +248,6 @@ const setBudget = async (req: Request, res: Response): Promise<any> => {
 
 
 export {createTrip, getItineraryIds, 
-    getAllItinerary, getAllTrip, addActivity, 
+    getAllItinerary, getAllTrip, editActivity, 
     addItem, deleteItem, incrementExpenses, 
     deleteEvent, addVariableExpenses, setBudget} 

@@ -199,15 +199,13 @@ async function getAllTrip(userId: string): Promise<Trip[]> {
   }
 }
 
-
-
-async function addActivity (
+async function editActivity (
   userId: string,
-  activityAddition: Activity,
+  activity: Activity[],
   tripId: string,
   itineraryId: string
-) : Promise<void>{
-    console.log(`addActivity called, args userId ${userId} activityAddition ${activityAddition} tripId ${tripId} itineraryId ${itineraryId}`);
+) : Promise<boolean>{
+    console.log(`addActivity called, args userId ${userId} activityAddition ${activity} tripId ${tripId} itineraryId ${itineraryId}`);
     try{
         const itineraryRef = await db
         .collection("users")
@@ -218,11 +216,13 @@ async function addActivity (
         .doc(itineraryId);
         const itinerarySnap=await itineraryRef.get();
         const data = itinerarySnap.data();
-        const existingActivities = data!.activities || [];
-        const updatedActivities = [...existingActivities, activityAddition];
-        await itineraryRef.update({ activities: updatedActivities });
+        if(Array.isArray(activity)){
+            const updatedActivities = [activity];
+            await itineraryRef.set({ activities: updatedActivities },{merge:true});
+        }
+        return true;
     }catch(error){
-        console.log(`error on addActivity, args userId ${userId} activityAddition ${activityAddition} tripId ${tripId} itineraryId ${itineraryId}`);
+        console.log(`error on addActivity, args userId ${userId} activityAddition ${activity} tripId ${tripId} itineraryId ${itineraryId}`);
         console.log(`error ${error}`);
         throw error
     }
@@ -352,7 +352,7 @@ async function setBudget(userId:string,tripId:string,amount:number): Promise<voi
 }
 
 export {createTrip, getItineraryIds, 
-    getAllItinerary, getAllTrip, addActivity, 
+    getAllItinerary, getAllTrip, editActivity, 
     addItems, deleteItem, incrementExpenses, 
     deleteEvent, addVariableExpenses, setBudget,
     isTripExist,isItineraryExist,isUserExist} 

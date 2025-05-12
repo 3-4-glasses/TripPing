@@ -1,7 +1,8 @@
 import * as geminiService from '../services/geminiServices';
 import { Request, Response } from 'express';
-import {createTrip} from '../services/tripServices'
+import {createTrip, isTripExist, isUserExist, isItineraryExist} from '../services/tripServices'
 import { Activity, Itinerary} from '../struct';
+import { editActivity } from '../services/tripServices';
 import admin from 'firebase-admin';
 
 const validateInput = async (req: Request, res: Response):Promise<any>=>{
@@ -13,6 +14,57 @@ const validateInput = async (req: Request, res: Response):Promise<any>=>{
     return res.status(500).json({ status: false, error: error.message || error});
   }
 }
+
+const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
+  try{
+    const {userId, tripId, itineraryId, previousActivty, input} = req.body;
+    if(!input || input === ''){
+      return res.status(400).json({ status: false, error: "input is empty" });
+    }
+    if(!userId || userId === ''){
+      return res.status(400).json({ status: false, error: "userId is required" });
+    }
+    
+    if(!isUserExist(userId)){
+      return res.status(404).json({ status: false, error: "userId does not exist" });
+    }
+    if(!tripId || tripId === ''){
+      return res.status(400).json({ status: false, error: "tripId is required" });
+    }
+    
+    if(!isTripExist(userId,tripId)){
+      return res.status(404).json({ status: false, error: "tripId does not exist" });
+    }        
+    if(!itineraryId || itineraryId === ''){
+      return res.status(400).json({ status: false, error: "itineraryId is required" });
+    }
+
+    if(!isItineraryExist(userId,tripId,itineraryId)){
+      return res.status(404).json({ status: false, error: "itineraryId does not exist" });
+    }
+
+    if(!Array.isArray(previousActivty)){
+      return res.status(400).json({ status: false, error: "previous activity needs to be an array" });
+    }
+    for(const activity of previousActivty){
+      if (!activity || !activity.from || !activity.to || !activity.title) {
+        return res.status(400).json({ status: false, error: "Invalid activity structure" });
+      }
+    }
+    const finalizeActivity: Activity[] = await geminiService.itenararyAI(previousActivty,input);
+    const editActivityStatus:boolean = await editActivity(userId,finalizeActivity,tripId,itineraryId);
+    if(editActivityStatus){
+      return res.status(201).json({ status: true, message:"success" });
+    }else{
+      return res.status(400).json({ status: true, message:"activity needs to be an array" });
+    }
+
+  } catch(error){
+    console.log(`error on addItineraryAI ${error}`);
+    throw error
+  }
+}
+
  const handleItinerary = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -105,4 +157,4 @@ const validateInput = async (req: Request, res: Response):Promise<any>=>{
   }
 };
 
-export {validateInput, handleItinerary}
+export {validateInput, handleItinerary, addItineraryAI}
