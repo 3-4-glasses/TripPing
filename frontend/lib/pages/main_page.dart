@@ -292,7 +292,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildItineraryFuture(
-      Trip closestTrip, DateTime today, List<Activity> relevantInFuture) {
+      Trip closestTrip, List<Activity> relevantInFuture) {
     return Padding(
       padding: const EdgeInsets.all(4.0),
       child: Column(
@@ -323,7 +323,7 @@ class _MainPageState extends State<MainPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(DateFormat('MMMM dd, yyyy').format(today), //show full date
+                Text(DateFormat('MMMM dd, yyyy').format(DateTime.parse(closestTrip.dateFrom.value!)), //show full date
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 // Display a maximum of 3 events.
@@ -352,7 +352,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildItineraryTomorrow(
-      Trip closestTrip, DateTime today, List<Activity> relevantInFuture) {
+      Trip closestTrip, List<Activity> relevantInFuture) {
     return Padding(
       padding: const EdgeInsets.all(4.0),
       child: Column(
@@ -383,7 +383,7 @@ class _MainPageState extends State<MainPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(DateFormat('MMMM dd, yyyy').format(today), //show full date
+                Text(DateFormat('MMMM dd, yyyy').format(DateTime.parse(closestTrip.dateFrom.value!)), //show full date
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 // Display a maximum of 3 events.
@@ -487,7 +487,7 @@ class _MainPageState extends State<MainPage> {
           child: Column(
             children: [
               _buildItineraryFuture(
-                  closestTrip, today, relevantInFuture)
+                  closestTrip, relevantInFuture)
             ],
           ),
         ),
@@ -512,7 +512,7 @@ class _MainPageState extends State<MainPage> {
           child: Column(
             children: [
               _buildItineraryTomorrow(
-                  closestTrip, today, relevantTomorrow)
+                  closestTrip, relevantTomorrow)
             ],
           ),
         ),
