@@ -1,4 +1,3 @@
-
 import cors from 'cors';
 import tripRouter from "./routes/tripRoutes";
 import userRouter from "./routes/userRoutes";
@@ -6,6 +5,8 @@ import express, { Express } from 'express';
 import geminiRouter from './routes/geminiRoutes';
 import dotenv from 'dotenv';
 
+
+(globalThis as any).fetch = fetch;
 
 dotenv.config();
 

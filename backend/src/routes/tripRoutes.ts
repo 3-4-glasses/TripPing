@@ -6,7 +6,6 @@ import {
   editActivity,
   addItem,
   deleteItem,
-  incrementExpenses,
   deleteEvent,
   addVariableExpenses,
   setBudget
@@ -25,8 +24,6 @@ tripRouter.post('/activity', editActivity);
 tripRouter.post('/item', addItem);
 
 tripRouter.delete('/item', deleteItem);
-
-tripRouter.post('/expenses/increment', incrementExpenses);
 
 tripRouter.delete('/event', deleteEvent);
 

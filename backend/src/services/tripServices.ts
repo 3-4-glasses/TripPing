@@ -95,8 +95,16 @@ async function createTrip(userId: string, tripData: any, itineraries: Itinerary[
                 to: new Date(activity.to),
                 title: activity.title,
                 details: activity.details,
-                location: new admin.firestore.GeoPoint(activity.location.latitude, activity.location.longitude),
+                ...(activity.location?.latitude != null && activity.location?.longitude != null
+                    ? {
+                        location: new admin.firestore.GeoPoint(
+                            activity.location.latitude,
+                            activity.location.longitude
+                        )
+                    }
+                    : {})
             }));
+
 
             const itineraryObj = {
                 date: itineraryDate,
@@ -203,7 +211,7 @@ async function editActivity (
   tripId: string,
   itineraryId: string
 ) : Promise<boolean>{
-    console.log(`addActivity called, args userId ${userId} activityAddition ${activity} tripId ${tripId} itineraryId ${itineraryId}`);
+    console.log(`addActivity called, args userId ${userId} activityAddition ${JSON.stringify(activity)} tripId ${tripId} itineraryId ${itineraryId}`);
     try{
         const itineraryRef = await db
         .collection("users")
@@ -215,7 +223,7 @@ async function editActivity (
         const itinerarySnap=await itineraryRef.get();
         const data = itinerarySnap.data();
         if(Array.isArray(activity)){
-            const updatedActivities = [activity];
+            const updatedActivities = activity;
             await itineraryRef.set({ activities: updatedActivities },{merge:true});
         }
         return true;
@@ -278,35 +286,39 @@ async function incrementExpenses(userId:string,tripId:string,amount:number): Pro
     }
 }
 
-async function deleteEvent(userId:string,tripId:string,itineraryId:string,activity:Activity): Promise<void> {
-    console.log(`deleteEvent called, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${activity}`);
-    try{
+async function deleteEvent(userId: string, tripId: string, itineraryId: string, activity: Activity): Promise<void> {
+    console.log(`deleteEvent called, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${JSON.stringify(activity)}`);
+    try {
         const itineraryRef = await db.collection("users").doc(userId).collection("trips").doc(tripId).collection("itinerary").doc(itineraryId);
         const itinerarySnap = await itineraryRef.get();
         const data = itinerarySnap.data();
-        let eventsDay:Activity[] = data!.activities;
+        let eventsDay: Activity[] = data!.activities;
+        
+        
         const updatedActivities = eventsDay.filter((activityDay) => {
-            const sameLocation =
-                (!activityDay.location && !activity.location) || // both undefined/null
-                (activityDay.location &&
-                activity.location &&
-                activityDay.location.latitude === activity.location.latitude &&
-                activityDay.location.longitude === activity.location.longitude);
+
+            // Convert Firestore Timestamps to milliseconds
+            const storedFromMs = activityDay.from instanceof admin.firestore.Timestamp ? activityDay.from.toMillis() : activityDay.from.getTime();
+            const storedToMs = activityDay.to instanceof admin.firestore.Timestamp ? activityDay.to.toMillis() : activityDay.to.getTime();
+
+            // Convert input timestamps to milliseconds
+            const inputFromMs = activity.from instanceof Date ? activity.from.getTime() : activity.from;
+            const inputToMs = activity.to instanceof Date ? activity.to.getTime() : activity.to;
 
             return !(
-                activityDay.details === activity.details &&
-                activityDay.title === activity.title &&
-                new Date(activityDay.from).getTime() === new Date(activity.from).getTime() &&
-                new Date(activityDay.to).getTime() === new Date(activity.to).getTime() &&
-                sameLocation
+                storedFromMs === inputFromMs &&
+                storedToMs === inputToMs
             );
         });
 
-        await itineraryRef.update({ activities: updatedActivities });
-    }catch(error){
-        console.log(`error on deleteEvent, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${activity}`);
-        console.log(`error ${error}`);
-        throw error
+
+        if (updatedActivities.length !== eventsDay.length) {
+            await itineraryRef.update({ activities: updatedActivities });
+        } 
+    } catch (error) {
+        console.log(`Error in deleteEvent, args userId ${userId} tripId ${tripId} item ${itineraryId} activity ${JSON.stringify(activity)}`);
+        console.log(`Error: ${error}`);
+        throw error;
     }
 }
 
@@ -325,8 +337,8 @@ async function addVariableExpenses(userId: string, tripId: string, item: any): P
         let variableExpenses: Record<string, number> = data?.variableExpenses || {};
 
         if (!variableExpenses[item.name]) {
-        variableExpenses[item.name] = item.value;
-        await incrementExpenses(userId,tripId,item.value);
+            variableExpenses[item.name] = item.value;
+            await incrementExpenses(userId,tripId,item.value);
         }
 
         await tripRef.set({ variableExpenses:variableExpenses }, { merge: true });
@@ -341,7 +353,7 @@ async function setBudget(userId:string,tripId:string,amount:number): Promise<voi
     console.log(`setBudget called, args userId ${userId} tripId ${tripId} amount ${amount}`);
     try{
         const tripRef = await db.collection("users").doc(userId).collection("trips").doc(tripId);
-        await tripRef.set({ expensesUsed:amount},{ merge: true });
+        await tripRef.set({ expensesLimit:amount},{ merge: true });
     }catch(error){
         console.log(`error on addItems, args userId ${userId} tripId ${tripId} amount ${amount}`);
         console.log(`error ${error}`);

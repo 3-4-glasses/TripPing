@@ -160,6 +160,15 @@ const addItem = async (req:Request, res:Response): Promise<any> =>{
 const deleteItem = async (req:Request, res:Response): Promise<any>=>{
     try{
         const {userId, tripId, item} = req.body;
+
+        if (!userId || !tripId || !item) {
+            return res.status(400).json({ status: false, error: 'Missing required fields: userId, tripId, or item' });
+        }
+
+        if(!tripService.isUserExist(userId) || !tripService.isTripExist(userId, tripId)){
+            return res.status(404).json({ status: false, error: 'TripID or userID doesnt exist' });
+        }
+
         await tripService.deleteItem(userId,tripId,item);
         return res.status(204).json({status:true,message:"success"});
     }catch(error: any){
@@ -167,33 +176,39 @@ const deleteItem = async (req:Request, res:Response): Promise<any>=>{
     }
 }
 
-const incrementExpenses = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { userId, tripId, amount } = req.body;
-
-        if (!userId || !tripId || amount === undefined) {
-            return res.status(400).json({ status: false, error: 'Missing required fields: userId, tripId, or amount' });
-        }
-
-        if (isNaN(amount)) {
-            return res.status(400).json({ status: false, error: 'Amount must be a valid number' });
-        }
-
-        if (amount <= 0) {
-            return res.status(400).json({ status: false, error: 'Amount must be a positive number' });
-        }
-
-        await tripService.incrementExpenses(userId, tripId, amount);
-        
-        return res.status(200).json({ status: true, message: 'success' });
-    } catch (error: any) {
-        return res.status(500).json({ status: false, error: error.message || error });
-    }
-}
-
 const deleteEvent = async (req:Request, res:Response): Promise<any>=>{
     try{
         const { userId, tripId, itineraryId, activity} = req.body;
+        
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+        if(!tripId || tripId === ''){
+            return res.status(400).json({ status: false, error: "tripId is required" });
+        }
+        
+        if(!tripService.isTripExist(userId,tripId)){
+            return res.status(404).json({ status: false, error: "tripId does not exist" });
+        }        
+        if(!itineraryId || itineraryId === ''){
+            return res.status(400).json({ status: false, error: "itineraryId is required" });
+        }
+
+        if(!tripService.isItineraryExist(userId,tripId,itineraryId)){
+            return res.status(404).json({ status: false, error: "itineraryId does not exist" });
+        }
+
+        if(!activity || !activity.from || !activity.to || !activity.title || !activity.details){
+            return res.status(400).json({ status: false, error: "activity is malformed" });   
+        }
+        activity.from = new Date(activity.from);
+        activity.to = new Date(activity.to);
+
+
         await tripService.deleteEvent(userId,tripId,itineraryId,activity);
         return res.status(204).json({status:true,message:"success"});
     }catch(error: any){
@@ -249,5 +264,5 @@ const setBudget = async (req: Request, res: Response): Promise<any> => {
 
 export {createTrip, getItineraryIds, 
     getAllItinerary, getAllTrip, editActivity, 
-    addItem, deleteItem, incrementExpenses, 
+    addItem, deleteItem, 
     deleteEvent, addVariableExpenses, setBudget} 

@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 import {Client,TextSearchRequest,PlaceType1,LatLng} from '@googlemaps/google-maps-services-js';
 import { Activity } from "../struct";
-
+import { sanitizeJsonString } from "../utils/jsonSanitizer";
+import admin from 'firebase-admin';
 
 dotenv.config();
 const client = new Client({});
@@ -36,8 +37,7 @@ async function  extractItienaryFeatures(input: string): Promise<string> {
     Make each field an array that is not malformed so that we know what we want to do, and how it correlates to the other fields, and have
     miscellaneous if it doenst fit the other fields, the miscellaneous array shape doesnt have to fit the other field's shape
     Return the data in the following in a strict JSON format, no explanations:
-    {
-      "{
+      {
         "activityTime":[string]
         "textExplanation": [string]
         "location": [string],
@@ -60,7 +60,6 @@ async function  extractItienaryFeatures(input: string): Promise<string> {
         "allowsDogs": [boolean],
         "accessibilityOptions": [string],
       }
-    }
   `;
   const result = await model.generateContent([systemInst, input]);
   const response = await result.response;
@@ -102,7 +101,9 @@ async function itenararyAI(previousActivity:Activity[] ,input: string): Promise<
     You are an assistant that generates Google Places Text Search API query JSON.
     Your task is to extract structured information from a free-text plan description written by a user, to be used as a complement to the existing activities.
     The user's message may contain destination, travel dates, activity preferences, time references, and miscellaneous instructions.
-    Make sure it matches the previous activities provided, and according to the user's plan
+    Make sure it matches the previous activities provided, and according to the user's plan,
+    IMPORTANT: MAKE SURE QUERY IS WITHIN THE SAME GENERAL AREA AS THE PREVIOUS ACTIVITIES; 
+      For example: if the previous activities are generally located in Bali, dont give locations that are in other parts of indonesia
     Return the data in the following in a strict JSON format, no explanations:
     Activities:[{
       location?: {
@@ -157,7 +158,7 @@ async function itenararyAI(previousActivity:Activity[] ,input: string): Promise<
   let parsed;
   
   try{ 
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(sanitizeJsonString(text));
   } catch (error) {
     console.error("Failed to parse Gemini response:", error);
     console.error("Raw output:", text);
@@ -179,50 +180,82 @@ async function itenararyAI(previousActivity:Activity[] ,input: string): Promise<
   } else {
     console.error("Invalid or missing Activities array");
   }
+  const hasProposals = addActivityRes.length > 0;
   const cleanUpInst = `
     You are a smart travel assistant that creates detailed, well-paced, daily travel itineraries.
-    Your job is to clean up and select the most appropiate place according to the user's wants, as well as organizing it too,
-    please return it in a strict json format such as the ones below:
-    [
-      {
-        "from": "09:00",
-        "to": "10:30",
-        "title": "Visit Tanah Lot Temple",
-        "location": {
-          "latitude": -8.6216,
-          "longitude": 115.0866
-        },
-        "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions."
-      },
-      {
-        "from": "11:00",
-        "to": "12:00",
-        "title": "Local market tour",
-        "details": "Support local artisans by exploring handmade crafts and regional food."
-      },
-      ...
-    ]
+
+${hasProposals ? `
+You are given a list of Google Places results and must pick the most relevant ones based on the user's preferences.
+` : `
+You are NOT given proposed places. You must generate relevant places from scratch based on the user's interest and location of previous activities.
+`}
+
+IMPORTANT:
+- Include the previous activity in the response, DO NOT REMOVE OR EXCLUDE IT
+- You may rearrange events to fit the user's intent
+- Ensure the new locations match the same area as the previous activities.
+- Format your response as strict JSON like this:
+[
+  {
+    "from": "09:00",
+    "to": "10:30",
+    "title": "Visit Tanah Lot Temple",
+    "location": {
+      "latitude": -8.6216,
+      "longitude": 115.0866
+    },
+    "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
+    "locationDetails": "Tanah Lot, Tabanan Regency, Bali"
+  },
+  ...
+]
   `
-  const resultClean = await model.generateContent([systemInst, `User's input: ${input} Proposed places: ${addActivityRes}`]);
-  const responseClean = await result.response;
-  const textClean = await response.text();
-  let parsedCleanedActivities: Activity[];
-  try {
-    parsedCleanedActivities = JSON.parse(textClean);
-  } catch (error) {
-    console.error("Failed to parse Gemini response:", error);
-    console.error("Raw output:", textClean);
+  const prompt=`
+  User intent: to add ${input}
+Previous activity: ${JSON.stringify(previousActivity)}
+${hasProposals ? `Proposed places: ${JSON.stringify(addActivityRes)}` : ''}
+  `;
+  console.log(prompt);
+  const resultClean = await model.generateContent([cleanUpInst, prompt]);
+  const responseClean = await resultClean.response;
+  const textClean = await responseClean.text();
+  const cleanedActivity: Activity[] = [];
+  console.log("-----------");
+  console.log(textClean);
+  console.log("-----------");
+  try{
+    parsed = JSON.parse(sanitizeJsonString(textClean));
+    for (const activity of parsed) {
+      const activityDoc: any = {
+        from: activity.from,
+        to: activity.to,
+        title: activity.title,
+        details: activity.details,
+      };
+
+      if (activity.location) {
+        activityDoc.location = new admin.firestore.GeoPoint(
+          activity.location.latitude || activity.location._latitude,
+          activity.location.longitude || activity.location._longitude
+        );
+      }
+
+      cleanedActivity.push(activityDoc);
+    }
+
+  } catch(error){
+    console.log(error);
     throw error;
   }
-  return previousActivity.concat(parsedCleanedActivities);
-
+  
+  return cleanedActivity;
 }
 async function cleanJSON(input:string){
   const placeJson: Record<string, any> = {};
   const miscellaneousJson: Record<string, any> = {};
   let parsed:Record<string,any>;
   try{
-    parsed = JSON.parse(input);
+    parsed = JSON.parse(sanitizeJsonString(input));
   }catch(error){
     console.log(error);
     throw error;
@@ -256,13 +289,14 @@ type PlaceQuery = {
 
 
 
-async function getQuery(destination:string, departureTime:string, returnTime:string, numpeople: number, preferredTransportation:string[], cleanJSON: string): Promise<string>{
+async function getQuery(destination:string, departureTime:number, returnTime:number,numAdult:number, numChildren:number, preferredTransportation:string[], cleanJSON: string): Promise<string>{
   const systemInst = `
 You are an assistant that generates Google Places Text Search API query JSON.
 
 The user provides structured itinerary data for each day of their trip. Each field is an array of the same length. Each index represents one planned activity. For example, the first item in 'location', 'type', 'servesLunch', etc., all describe the same place intent.
 
 Your job is to generate one or more API query objects for each day.
+If the cleanJSON's day length is lesser than the total time(departureTime, and returnTime), give suggestion within the same destination as if to plan an itenerary in the destination
 
 Return strict JSON with this structure, where fields with ? are optional:
 {
@@ -319,6 +353,7 @@ Instructions:
     - "servesLunch" → "lunch"
     - "hasLiveMusic" → "live music"
     - "isGoodForGroups" → "good for groups"
+    - Always append "in ${destination}" at the end of the query string to restrict location
 
 2. Set "location's longitude and latitude" using a known coordinate (if unavailable, omit).
 3. Set "radius" based on the transport mode, AND only if there is an existing location set:
@@ -347,7 +382,8 @@ Instructions:
   Destination: ${destination}
   Departure Time: ${departureTime}
   Return Time: ${returnTime}
-  Number of People: ${numpeople}
+  Number of Adult: ${numAdult},
+  Number of Children: ${numChildren}
   Preferred Transportation: ${preferredTransportation}
 
   Itinerary Data:
@@ -356,11 +392,11 @@ Instructions:
   const result = await model.generateContent([systemInst, prompt]);
   const response = await result.response;
   const text = await response.text();
-  
+  console.log(`getQeury: ${text}`);
   let parsed: Record<string, PlaceQuery[]>;
 
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(sanitizeJsonString(text));
   } catch (error) {
     console.error("Failed to parse Gemini response:", error);
     console.error("Raw output:", text);
@@ -370,24 +406,26 @@ Instructions:
   for (const [day, queries] of Object.entries(parsed)) {
     dayResults[day] = [];
     for (const item of queries) {
-      // Use optional chaining and nullish coalescing for safe access
+      // Generate the query for the current item in the current day
       const request = getParams(item);
-      if(!request) continue;
+      if (!request) continue;  // Skip if the request is invalid
     
       try {
+        // Send the query for the current day's activity
         const res = await client.textSearch({ params: request });
-        dayResults[day].push(res.data);
+        dayResults[day].push(res.data);  // Store the result for this day's activity
       } catch (error) {
         console.error(`Failed request for ${day}:`, error);
         throw error;
       }
     }
   }
+  console.log(`Day results: ${dayResults}`);
   return JSON.stringify(dayResults);
 }
 
 
-async function processAI(placeJSON: string, miscellaneousJSON: string){ 
+async function processAI(placeJSON: string, miscellaneousJSON: string, numAdult: number, numChildren: number, input: number){ 
   const systemInst=`
   You are a smart travel assistant that creates detailed, well-paced, daily travel itineraries.
   Your job is to organize both user-specified activities (miscellaneous) and places returned from the Google Places API into a structured, optimized itinerary.
@@ -401,7 +439,7 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
   Encouraging meaningful, low-impact travel experiences
 
   Your Input:
-  You will receive two JSON objects:
+  You will receive two JSON objects, the number of children and the number of adults:
 
   places: a list of possible recommended places grouped by day (based on Google Places API results)
 
@@ -412,6 +450,13 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
   name, type, location, optional duration, and openTime/closeTime
 
   Your Task:
+  IMPORTANT: Calculate the estimated expenses, depending on the number of children and adult, some tickets may vary on the age, which is why this is necessary
+  For the estimated expenses, add each item to the setExpenses, with the item name and the price
+  If the user states explicitly their budget, set it to expensesLimit, else set the same value as the estimated expenses
+  IF THERE ARE ANY EXPENSES THAT CAN BE IN RANGE, SUCH AS BUYING GROCERIES, EATING AT A RESTAURANT, add the item name to teh variable expenses with teh estimated price,
+  IMPORTANT: MAKESURE TO INCLUDE THE USER'S INTENT/INTERESTS
+  If there is a location, make sure to inclue the location detail
+  MAKE SURE THE CURRENCY IS CONSISTENT IN IDR
   For each day:
 
   Select the best 2-4 places from the list (prioritize local, cultural, or eco-friendly options)
@@ -423,13 +468,18 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
   Ensure good pacing, breaks, and efficient transport
 
   Add a short detail or description to each activity
-  Return a strict json format like
+  Return a strict json format like, DO NOT FORGET ABOUT THE ESTIMATED EXPENSES AND SET EXPENSES
   {
+    "expensesLimit":100000,
     "estimatedExpenses": 10000,
     "setExpenses":[{
-      "item": "Tanah Lot Ticker",
+      "item": "Tanah Lot Ticket",
       "price": 10
-    },...]
+    },...],
+    "variableExpenses":[{
+      "item": "Groceries",
+      "price": 25
+    }, ....]
     "day1": 
         “date”: “01-01-2025”,
         “activities”: [
@@ -441,7 +491,8 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
           "latitude": -8.6216,
           "longitude": 115.0866
         },
-        "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions."
+        "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
+        "locationDetail": "Tanah Lot, Tabanan Regency, Bali"
       },
       {
         "from": "11:00",
@@ -465,7 +516,17 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
 
   Miscellaneous:
   ${miscellaneousJSON}
+
+  Number of adult:
+  ${numAdult}
+
+  Number of children:
+  ${numChildren}
+
+  User's intent/interest:
+  ${input}
   `;
+  console.log(`Prompt: ${prompt}`);
 
   const result = await model.generateContent([systemInst, prompt]);
   const response = await result.response;
@@ -473,7 +534,7 @@ async function processAI(placeJSON: string, miscellaneousJSON: string){
   
   let planned;
   try{
-    planned = JSON.parse(text)
+    planned = JSON.parse(sanitizeJsonString(text));
   } catch(err){
     console.error("Failed to parse itinerary JSON:\n", text);
     throw new Error("Gemini returned invalid JSON");

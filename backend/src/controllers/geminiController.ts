@@ -51,7 +51,7 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
         return res.status(400).json({ status: false, error: "Invalid activity structure" });
       }
     }
-    const finalizeActivity: Activity[] = await geminiService.itenararyAI(previousActivty,input);
+    const finalizeActivity: Activity[]= await geminiService.itenararyAI(previousActivty,input);
     const editActivityStatus:boolean = await editActivity(userId,finalizeActivity,tripId,itineraryId);
     if(editActivityStatus){
       return res.status(201).json({ status: true, updatedActivity:finalizeActivity });
@@ -65,7 +65,7 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
   }
 }
 
- const handleItinerary = async (req: Request, res: Response): Promise<any> => {
+const handleItinerary = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
       userId,
@@ -73,12 +73,22 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
       destination,
       departureTime,
       returnTime,
-      numPeople,
+      numChildren,
+      numAdult,
       preferredTransportation,
     } = req.body;
 
-    if (!input || !destination || !departureTime || !returnTime || !numPeople || !preferredTransportation) {
-      return res.status(400).json({ status: false, error: "Missing required fields." });
+    let transport: string[] = [];
+
+    if (Array.isArray(preferredTransportation)) {
+      transport = preferredTransportation;
+    } else if (typeof preferredTransportation === 'string') {
+      transport = [preferredTransportation];
+    }
+
+    if (!input || !destination || typeof departureTime !== 'number' || typeof returnTime !== 'number' || typeof numChildren !== 'number' 
+      || typeof numAdult !== 'number') {
+      return res.status(400).json({ status: false, error: "Missing or invalid required fields." });
     }
 
     const rawJson = await geminiService.extractItienaryFeatures(input);
@@ -89,14 +99,15 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
       destination,
       departureTime,
       returnTime,
-      numPeople,
-      preferredTransportation,
+      numAdult,
+      numChildren,
+      transport,
       JSON.stringify(placeJson)
     );
-    
-    
-    const finalize = await geminiService.processAI(queryJson, JSON.stringify(miscellaneousJson));
+    console.log(queryJson);
 
+    const finalize = await geminiService.processAI(queryJson, JSON.stringify(miscellaneousJson), numAdult, numChildren, input);
+    
     let finalizeJSON;
     try {
       finalizeJSON = typeof finalize === "string" ? JSON.parse(finalize) : finalize;
@@ -109,31 +120,36 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
       from: new Date(departureTime),
       to: new Date(returnTime),
       expensesUsed: finalizeJSON.estimatedExpenses || 0,
-      expensesLimit: finalizeJSON.estimatedExpenses || 0,
+      expensesLimit: finalizeJSON.expensesLimit || 0,
       setExpenses: finalizeJSON.setExpenses || [],
+      variableExpenses: finalizeJSON.variableExpenses || []
     };
 
     const itineraryArray: Itinerary[] = [];
-
-    const baseDate = new Date(departureTime);
+    const baseDate = new Date(departureTime); // Start with the base date (departureTime)
     let dayIndex = 0;
 
     for (const key in finalizeJSON) {
       if (key.startsWith("day") && finalizeJSON[key]?.activities) {
         const currentDate = new Date(baseDate);
-        currentDate.setDate(currentDate.getDate() + dayIndex);
+        currentDate.setDate(currentDate.getDate() + dayIndex); // Adjust the current date based on the day index
 
         const activities = finalizeJSON[key].activities;
 
-        const formattedActivities: Activity[] = activities.map((act: any) => ({
-          from: new Date(`${currentDate.toISOString().split("T")[0]}T${act.from}`),
-          to: new Date(`${currentDate.toISOString().split("T")[0]}T${act.to}`),
-          title: act.title,
-          details: act.details,
-          location: act.location
-            ? new admin.firestore.GeoPoint(act.location.latitude, act.location.longitude)
-            : undefined
-        }));
+        const formattedActivities: Activity[] = activities.map((act: any) => {
+          const fromTime = new Date(`${currentDate.toISOString().split("T")[0]}T${act.from}`);
+          const toTime = new Date(`${currentDate.toISOString().split("T")[0]}T${act.to}`);
+
+          return {
+            from: fromTime,  // Set the activity's from time
+            to: toTime,      // Set the activity's to time
+            title: act.title,
+            details: act.details,
+            location: act.location
+              ? new admin.firestore.GeoPoint(act.location.latitude, act.location.longitude)
+              : undefined
+          };
+        });
 
         itineraryArray.push({
           date: currentDate,
@@ -144,11 +160,11 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
       }
     }
 
-    const createdTripId = await createTrip(userId,tripData,itineraryArray);
+    const createdTripId = await createTrip(userId, tripData, itineraryArray);
 
     return res.status(200).json({
       status: true,
-      result:finalize,
+      result: finalize,
       tripId: createdTripId
     });
   } catch (error: any) {
@@ -156,5 +172,6 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
     return res.status(500).json({ status: false, error: error.message || error });
   }
 };
+
 
 export {validateInput, handleItinerary, addItineraryAI}

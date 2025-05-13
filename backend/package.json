@@ -18,7 +18,6 @@
     "build": "tsc",
     "start": "node dist/app.js"
   },
-
   "devDependencies": {
     "@types/cors": "^2.8.18"
   }
