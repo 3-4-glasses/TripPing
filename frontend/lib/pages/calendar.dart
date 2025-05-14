@@ -90,6 +90,7 @@ class _CalendarState extends State<Calendar> {
 
   void _handleEditResult(List<Event>? updatedEvents) {
     // Triggered after user comes back from the CalendarEditMode page.
+    print(updatedEvents?.last.title);
 
     // Checks whether there are new events added.
     if (updatedEvents != null) {

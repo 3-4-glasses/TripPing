@@ -68,7 +68,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
       context: context,
       initialDate: _eventStartDate ?? DateTime.now(),
       firstDate: DateTime(2010),
-      lastDate: DateTime(2030),
+      lastDate: DateTime(2040),
     );
     if (picked != null) {
       setState(() {
@@ -234,12 +234,12 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
           activities: [], //  Initialize with an empty list.
         );
       }
-      //update or add
+      // Update or add
       if (_editingIndex != null) {
-        //update
+        // Update
         _allEvents[_editingIndex!] = newEvent;
 
-        //update activity
+        // Update activity
         bool found = false;
         for (var activity in _trip.itineraries[dayKey]!.activities)
         {
@@ -258,12 +258,12 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
         }
 
       } else {
-        //add
+        // Add
         _allEvents.add(newEvent);
         _trip.itineraries[dayKey]!.activities.add(newActivity);
       }
 
-      //sort
+      // Sort
       _allEvents.sort((a, b) {
         int startTimeComparison = a.startDate.compareTo(b.startDate);
         if (startTimeComparison != 0) {
@@ -328,6 +328,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
 
   void _confirmChanges() {
     GlobalTripData.instance.notifyListeners();
+    print(_allEvents.first.title);
     Navigator.pop(context, _allEvents);
   }
 
@@ -484,8 +485,10 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                                       children: [
                                         IconButton(
                                             icon: const Icon(Icons.edit),
-                                            onPressed: () =>
-                                                _editEvent(index)),
+                                            onPressed: () {
+                                              _editEvent(index);
+                                            }
+                                        ),
                                         IconButton(
                                             icon: const Icon(Icons.delete),
                                             onPressed: () =>
@@ -660,4 +663,3 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     );
   }
 }
-

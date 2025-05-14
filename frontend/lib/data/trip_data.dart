@@ -115,8 +115,8 @@ class Trip {
   ValueNotifier<double> expensesUsed;
   ValueNotifier<double> expensesLimit;
   ValueNotifier<List<String>> items; //simplified
-  ValueNotifier<List<String>> variableExpenses; //simplified
-  ValueNotifier<List<String>> fixedExpenses;    //simplified
+  ValueNotifier<List<Map<String, dynamic>>?> variableExpenses; //simplified
+  ValueNotifier<List<Map<String, dynamic>>> fixedExpenses;    //simplified
   Map<String, Itinerary> itineraries; // Changed to Map<String, Itinerary>
 
   Trip({
@@ -155,10 +155,10 @@ class Trip {
           (json['expensesLimit'] ?? 0.0).toDouble()), // Provide default
       items: ValueNotifier<List<String>>(
           (json['items'] as List? ?? []).cast<String>()), // Provide default
-      variableExpenses: ValueNotifier<List<String>>(
-          (json['variableExpenses'] as List? ?? []).cast<String>()), //default
-      fixedExpenses: ValueNotifier<List<String>>(
-          (json['fixedExpenses'] as List? ?? []).cast<String>()),    //default
+      variableExpenses: ValueNotifier<List<Map<String, dynamic>>>(
+          (json['variableExpenses'] as List? ?? []).cast<Map<String, dynamic>>()), //default
+      fixedExpenses: ValueNotifier<List<Map<String, dynamic>>>(
+          (json['fixedExpenses'] as List? ?? []).cast<Map<String, dynamic>>()),    //default
       itineraries: parsedItineraries,
     );
   }
