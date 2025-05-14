@@ -1,12 +1,16 @@
+import 'package:apacsolchallenge/data/global_trip_data.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:google_solution_challenge/pages/calendar_edit.dart';
-import 'package:google_solution_challenge/pages/reminders.dart';
+import 'package:apacsolchallenge/pages/calendar_edit.dart';
+import 'package:apacsolchallenge/pages/reminders.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import 'package:google_solution_challenge/utilities/calendar_utils.dart';
+import 'package:apacsolchallenge/utilities/calendar_utils.dart';
+import '../data/trip_data.dart';
 
 class Calendar extends StatefulWidget {
-  const Calendar({super.key});
+  final String tripId;
+  const Calendar({super.key, required this.tripId});
 
   @override
   State<Calendar> createState() => _CalendarState();
@@ -16,67 +20,143 @@ class _CalendarState extends State<Calendar> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   late DateTime _focusedDay;
   DateTime? _selectedDay;
-  List<Event> _events = [
-    Event(
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
-      timeStart: const TimeOfDay(hour: 9, minute: 0),
-      timeEnd: const TimeOfDay(hour: 11, minute: 30),
-      title: 'Visit Eiffel Tower',
-      location: 'Champ de Mars, Paris',
-      notes: 'Remember to book tickets in advance',
-    ),
-    Event(
-      startDate: DateTime.now().add(const Duration(days: 2)),
-      endDate: DateTime.now().add(const Duration(days: 2)),
-      timeStart: const TimeOfDay(hour: 14, minute: 0),
-      timeEnd: const TimeOfDay(hour: 16, minute: 0),
-      title: 'Museum Tour',
-      location: 'The Louvre, Paris',
-      notes: 'Audio guide available at entrance',
-    ),
-    // Example of a multi-day event
-    Event(
-      startDate: DateTime.now().add(const Duration(days: 5)),
-      endDate: DateTime.now().add(const Duration(days: 6)),
-      timeStart: const TimeOfDay(hour: 18, minute: 30),
-      timeEnd: const TimeOfDay(hour: 9, minute: 0),
-      title: 'Dinner Cruise + Hotel Stay',
-      location: 'Seine River, Paris',
-      notes: 'Formal attire recommended, includes overnight stay',
-      isMultiDay: true,
-    ),
-  ];
+  List<Event> _events = [];
   List<Event> _selectedEvents = [];
+  late Trip _trip;
 
   @override
   void initState() {
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = _focusedDay;
-    _selectedEvents = CalendarUtils.getEventsForDay(_events, _selectedDay!);
+    _loadTripData();
+  }
+
+  void _loadTripData(){
+    final globalTripData = GlobalTripData.instance;
+    _trip = globalTripData.tripData.trips.value.firstWhere((trip) => trip.id == widget.tripId);
+    _events.clear();
+    _events.addAll(_getEventsFromTrip(_trip));
+
+    if (_selectedDay != null){
+      _selectedEvents = CalendarUtils.getEventsForDay(_events, _selectedDay!);
+    }
+
+    setState(() {
+      
+    });
+  }
+
+  List<Event> _getEventsFromTrip(Trip trip){
+    List<Event> allEvents = [];
+
+    for (var itinerary in trip.itineraries.values){
+      DateTime itineraryDate = DateTime.parse(itinerary.date);
+      for (var activity in itinerary.activities){
+        TimeOfDay startTime = parseTimeOfDay(activity.from);
+        TimeOfDay endTime = parseTimeOfDay(activity.to);
+
+        DateTime startDate = itineraryDate;
+        DateTime endDate = itineraryDate;
+
+        if (startTime.hour > endTime.hour || (startTime.hour == endTime.hour && startTime.minute > endTime.minute)){
+          endDate = endDate.add(const Duration(days: 1));
+        }
+        
+        bool isMultiDay = startDate != endDate;
+
+        allEvents.add(
+          Event(
+            startDate: startDate,
+            endDate: endDate,
+            timeStart: startTime,
+            timeEnd: endTime,
+            title: activity.title,
+            notes: activity.details,
+            isMultiDay: isMultiDay
+          )
+        );
+      }
+    }
+    return allEvents;
+  }
+
+  TimeOfDay parseTimeOfDay(String timeString){
+    List<String> parts = timeString.split(":");
+    int hour = int.parse(parts[0]);
+    int minute = int.parse(parts[1]);
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   void _handleEditResult(List<Event>? updatedEvents) {
+    // Triggered after user comes back from the CalendarEditMode page.
+    print(updatedEvents?.last.title);
+
+    // Checks whether there are new events added.
     if (updatedEvents != null) {
       setState(() {
         _events = updatedEvents;
         _selectedEvents = CalendarUtils.getEventsForDay(_events, _selectedDay ?? _focusedDay);
+        _updateTripItineraries(updatedEvents);
+        GlobalTripData.instance.notifyListeners();
       });
+    } else {
+      _loadTripData();
     }
+  }
+
+  void _updateTripItineraries(List<Event> updatedEvents){
+    Map<String, Itinerary> existingItineraries = Map.from(_trip.itineraries); 
+    _trip.itineraries.clear(); // Clear existing itineraries at the beginning
+
+    final groupedEvents = groupBy(updatedEvents, (Event event) => event.startDate);
+
+    groupedEvents.forEach((date, eventsForDate) {
+      String formattedDate = DateFormat('yyyy-MM-dd').format(date);
+      String dayKey;
+
+      if(existingItineraries.values.any((itinerary) => itinerary.date == formattedDate)){
+        dayKey = existingItineraries.keys.firstWhere((key) => existingItineraries[key]!.date == formattedDate);
+      }
+      else{
+         dayKey = "day${_trip.itineraries.length + 1}";
+      }
+
+      List<Activity> activitiesForDate = eventsForDate.map((event) {
+        return Activity(
+          title: event.title,
+          from: formatTimeOfDay(event.timeStart),
+          to: formatTimeOfDay(event.timeEnd),
+          details: event.notes,
+        );
+      }).toList();
+
+      // Combine with existing activities if the dayKey already exists
+      if (_trip.itineraries.containsKey(dayKey)) {
+        _trip.itineraries[dayKey]!.activities.addAll(activitiesForDate);
+      } else {
+        Itinerary itinerary = Itinerary(date: formattedDate, activities: activitiesForDate);
+        _trip.itineraries[dayKey] = itinerary;
+      }
+    });
+    GlobalTripData.instance.notifyListeners();
+  }
+
+  String formatTimeOfDay(TimeOfDay timeOfDay){
+    return '${timeOfDay.hour.toString().padLeft(2, '0')}:${timeOfDay.minute.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trip Calendar'),
+        title: const Text("Trip Calendar"),
       ),
       body: Column(
         children: [
           TableCalendar(
-            firstDay: DateTime.utc(2010, 10, 16),
-            lastDay: DateTime.utc(2030, 3, 14),
+            firstDay: DateTime.utc(2010, 1, 1),
+            lastDay: DateTime.utc(2040, 1, 1),
             focusedDay: _focusedDay,
             calendarFormat: _calendarFormat,
             selectedDayPredicate: (day) {
@@ -132,18 +212,21 @@ class _CalendarState extends State<Calendar> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                _selectedDay != null
-                    ? 'Events on ${DateFormat('MMM d, yyyy').format(_selectedDay!)}'
-                    : 'Select a day to see events',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  _selectedDay != null
+                      ? ''
+                      : 'Select a day to see events',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -165,6 +248,7 @@ class _CalendarState extends State<Calendar> {
                         builder: (context) => CalendarEditMode(
                           initialSelectedDay: _selectedDay,
                           events: List.from(_events),
+                          tripId: widget.tripId,
                         ),
                       ),
                     );
@@ -177,7 +261,7 @@ class _CalendarState extends State<Calendar> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const Reminders()),
+                      MaterialPageRoute(builder: (context) => RemindersPage(trip: _trip)),
                     );
                   },
                   icon: const Icon(Icons.notifications),
@@ -188,34 +272,12 @@ class _CalendarState extends State<Calendar> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Add Trip',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'See Trips',
-          ),
-        ],
-        currentIndex: 2,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const Placeholder()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const Placeholder()));
-          }
-        },
-      ),
     );
   }
 
+  // Builds the list of events for a single day. INPUT: _selectedEvents
   Widget _buildEventList() {
+    // If the _selectedDay has no events (_selectedEvents is empty)
     if (_selectedEvents.isEmpty) {
       return const Center(
         child: Text(
@@ -228,6 +290,7 @@ class _CalendarState extends State<Calendar> {
       );
     }
 
+    // There are events in _selectedDay
     return ListView.builder(
       itemCount: _selectedEvents.length,
       itemBuilder: (context, index) {
@@ -287,7 +350,7 @@ class _CalendarState extends State<Calendar> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        event.location,
+                        "Location details need GMaps API",
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 14,
@@ -332,13 +395,13 @@ class _CalendarState extends State<Calendar> {
   }
 }
 
+// Stores details of an event.
 class Event {
   final DateTime startDate;
   final DateTime endDate;
   final TimeOfDay timeStart;
   final TimeOfDay timeEnd;
   final String title;
-  final String location;
   final String notes;
   final bool isMultiDay;
 
@@ -348,7 +411,6 @@ class Event {
     required this.timeStart,
     required this.timeEnd,
     required this.title,
-    required this.location,
     this.notes = '',
     this.isMultiDay = false,
   });

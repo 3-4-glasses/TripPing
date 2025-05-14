@@ -1,9 +1,19 @@
+import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
-import 'authenticationWindow.dart';
-
+import 'package:google_solution_challenge/widget_tree.dart';
 
 void main() {
-  runApp(const MyApp());
+  final globalTripData = GlobalTripData.instance;
+  globalTripData.initialize(); // Initialize trip data
+
+  runApp(
+    MultiProvider( // Use MultiProvider to provide GlobalTripData
+      providers: [
+        ChangeNotifierProvider(create: (_) => globalTripData),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -12,11 +22,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.cyan),
       ),
-      home: AuthenticationWindow()
+      home: MainPage()
     );
   }
 }

@@ -1,5 +1,5 @@
+import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
-import 'calendar.dart';
 
 class PersonalizedQuestion extends StatefulWidget {
   const PersonalizedQuestion({super.key});
@@ -12,15 +12,15 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
   final _dreamExperienceController = TextEditingController();
   String _validationError = '';
 
-  void _navigateToCalendar() {
+  void _navigateFinish() {
     // In a real scenario, we would send the text to Gemini for validation here.
     // For now, we'll just navigate if the text box is not empty.
     if (_dreamExperienceController.text.isNotEmpty) {
       // TODO: Implement the actual validation logic using Gemini (backend).
       // For now, we'll just proceed.
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => Calendar()),
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => MainPage()),
+        (Route<dynamic> route) => false,
       );
     } else {
       setState(() {
@@ -72,7 +72,7 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
               ),
             const SizedBox(height: 32.0),
             ElevatedButton(
-              onPressed: _navigateToCalendar,
+              onPressed: _navigateFinish,
               child: const Text('Next'),
             ),
           ],
