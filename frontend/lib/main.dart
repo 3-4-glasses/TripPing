@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'widget_tree.dart';
+import 'authenticationWindow.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +16,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: WidgetTree()
+      home: AuthenticationWindow()
     );
   }
 }

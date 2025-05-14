@@ -234,6 +234,9 @@ async function editActivity (
     }
 }
 
+
+
+
 async function addItems(userId: string, tripId:string, item:string): Promise<void>{
     console.log(`addItems called, args userId ${userId} tripId ${tripId} item ${item}`);
     try{

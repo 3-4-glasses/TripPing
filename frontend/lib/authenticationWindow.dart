@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 
 class AuthenticationWindow extends StatefulWidget {
   const AuthenticationWindow({super.key});
@@ -25,6 +28,35 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
   final _formKey = GlobalKey<FormState>();
   String? errorMessage;
 
+  Future<String> verifyToken(String? idToken) async{
+    if(idToken==null) {
+      return '';
+    }
+    final res = await http.post(Uri.parse('https://backend-server-412321340776.us-west1.run.app/user/verify-token'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{
+          'tokenReq':idToken
+        }));
+    if(res.statusCode == 201){
+      try{
+        final decodedToken = jsonDecode(res.body)['decodedToken'];
+        return decodedToken['uid'];
+
+      }catch(er){
+        print(er);
+        throw(er);
+      }
+    }else{
+      setState(() {
+        errorMessage = jsonDecode(res.body)['error'];
+      });
+      return '';
+    }
+
+  }
+
   Future<void> login() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -39,7 +71,12 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
         User? user = FirebaseAuth.instance.currentUser;
         if (user != null) {
           String? idToken = await user.getIdToken();
-          // Navigate or handle the token
+          final uid = await verifyToken(idToken);
+          if(uid.isNotEmpty){
+            print(uid);
+            // Navigate to main screen with uid
+          }
+
         }
       } on FirebaseAuthException catch (e) {
         setState(() {
@@ -61,8 +98,17 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
 
       final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCred.user;
-      final tokenId = await user?.getIdToken();
+      final idToken = await user?.getIdToken();
       // Handle navigation
+      if(idToken==null) {
+        return;
+      }
+      final uid = await verifyToken(idToken);
+      if(uid.isNotEmpty){
+        print(uid);
+        // Navigate to main screen with uid
+      }
+
     } on FirebaseAuthException catch (e) {
       setState(() {
         errorMessage = e.message ?? "An error occurred during sign-in!";
@@ -72,8 +118,24 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
 
   Future<void> registerUser() async {
     if (_formKey.currentState!.validate()) {
-      // TODO backend
-      
+      final res = await http.post(Uri.parse('https://backend-server-412321340776.us-west1.run.app/user/register'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          body: jsonEncode(<String, String>{
+            'user_name':_nameController.text,
+            'email':_emailController.text,
+            'password':_passwordController.text
+          }));
+      if(res.statusCode == 201){
+        final uid = jsonDecode(res.body)['userId'];
+        // navigate to amin screen with uid
+      }else{
+        setState(() {
+          errorMessage = jsonDecode(res.body)['error'];
+        });
+      }
+
     }
   }
 
@@ -317,7 +379,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                           const Text("Please re-enter your password", style: TextStyle(fontSize: 16)),
                           const SizedBox(height: 8),
                           TextFormField(
-                            controller: _passwordController,
+                            controller: _confirmController,
                             obscureText: _obscureReenter,
                             obscuringCharacter: "•",
                             decoration: InputDecoration(
@@ -341,6 +403,15 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 10),
+                          if (errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Text(
+                                errorMessage!,
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                            ),
                           const SizedBox(height: 20),
                           Center(
                             child: SizedBox(
