@@ -1,6 +1,7 @@
 import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
-import 'package:google_solution_challenge/widget_tree.dart';
+import 'package:provider/provider.dart';
+import 'data/global_trip_data.dart';
 
 void main() {
   final globalTripData = GlobalTripData.instance;

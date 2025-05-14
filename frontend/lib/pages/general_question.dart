@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'personalized_question.dart';
+import '../data/global_user.dart';
 
 class GeneralQuestion extends StatefulWidget {
   const GeneralQuestion({super.key});
@@ -167,7 +168,20 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
     if (_isNextButtonEnabled) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => PersonalizedQuestion()),
+        MaterialPageRoute(
+          builder: (context) => PersonalizedQuestion(
+            tripName: _tripNameController.text,
+            destination: _destinationController.text,
+            departureDate: _departureDate,
+            departureTime: _departureTime,
+            returnDate: _returnDate,
+            returnTime: _returnTime,
+            adultCount: _adultCount,
+            childCount: _childCount,
+            transportation: _transportationController.text,
+            uid: UserSession().uid,
+          ),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

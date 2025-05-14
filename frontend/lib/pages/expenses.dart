@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:apacsolchallenge/data/trip_data.dart';
 import '../data/global_trip_data.dart';
+import '../data/global_user.dart';
 
 class Expenses extends StatefulWidget {
   const Expenses({super.key, required this.trip});
-
   final Trip trip;
 
   @override
@@ -49,6 +49,8 @@ class _ExpensesState extends State<Expenses> {
                   widget.trip.expensesLimit.value = newBudget; // Update the ValueNotifier
                   Navigator.of(context).pop(); // Close the dialog
                   tripDataInstance.notifyListeners(); // Use the instance directly
+                  // TODO
+
                   _showSnackBar("Budget updated successfully");
                 } else {
                   // Show an error message if the input is invalid

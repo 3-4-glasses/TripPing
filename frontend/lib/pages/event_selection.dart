@@ -4,7 +4,8 @@ import 'package:apacsolchallenge/pages/general_question.dart';
 import 'package:apacsolchallenge/pages/main_page.dart';
 import '../data/global_trip_data.dart';
 import '../data/trip_data.dart';
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
+import '../data/global_user.dart';
 
 class EventSelection extends StatelessWidget {
   const EventSelection({super.key});

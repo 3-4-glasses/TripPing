@@ -58,6 +58,7 @@ class _RemindersPageState extends State<RemindersPage> {
   }
 
   // Delete item from trip's items list
+  // TODO
   Future<void> _deleteItem(String itemText) async {
     // IMPORTANT: Update the Trip's ValueNotifier<List<String>>
     List<String> currentItems = List.from(widget.trip.items.value);

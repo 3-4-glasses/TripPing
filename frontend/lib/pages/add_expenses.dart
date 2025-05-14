@@ -1,6 +1,7 @@
 import 'package:apacsolchallenge/data/global_trip_data.dart';
 import 'package:flutter/material.dart';
 import '../data/trip_data.dart';
+import '../data/global_user.dart';
 
 class AddExpenses extends StatefulWidget {
   const AddExpenses({super.key, required this.tripId});

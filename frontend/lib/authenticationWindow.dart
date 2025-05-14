@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
+import '../data/global_user.dart';
 
 class AuthenticationWindow extends StatefulWidget {
   const AuthenticationWindow({super.key});
@@ -28,9 +28,10 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
   final _formKey = GlobalKey<FormState>();
   String? errorMessage;
 
-  Future<String> verifyToken(String? idToken) async{
+  Future<({bool status, String? uid, String? name})> verifyToken(String? idToken) async{
     if(idToken==null) {
-      return '';
+      return (status: false, uid: null, name: null);
+
     }
     final res = await http.post(Uri.parse('https://backend-server-412321340776.us-west1.run.app/user/verify-token'),
         headers: <String, String>{
@@ -42,7 +43,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
     if(res.statusCode == 201){
       try{
         final decodedToken = jsonDecode(res.body)['decodedToken'];
-        return decodedToken['uid'];
+        return (status:true, uid:decodedToken['uid'] as String?, name:decodedToken['name'] as String?);
 
       }catch(er){
         print(er);
@@ -52,7 +53,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
       setState(() {
         errorMessage = jsonDecode(res.body)['error'];
       });
-      return '';
+      return (status: false, uid: null, name: null);
     }
 
   }
@@ -71,10 +72,18 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
         User? user = FirebaseAuth.instance.currentUser;
         if (user != null) {
           String? idToken = await user.getIdToken();
-          final uid = await verifyToken(idToken);
-          if(uid.isNotEmpty){
-            print(uid);
-            // Navigate to main screen with uid
+          final message = await verifyToken(idToken);
+          if(message.status){
+            if(message.uid!=null && message.name !=null){
+              UserSession().uid = message.uid!;
+              UserSession().name = message.name!;
+              // Navigate to main screen with uid
+            }
+            else{
+              setState(() {
+                errorMessage = "An error occurred";
+              });
+            }
           }
 
         }
@@ -103,10 +112,18 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
       if(idToken==null) {
         return;
       }
-      final uid = await verifyToken(idToken);
-      if(uid.isNotEmpty){
-        print(uid);
-        // Navigate to main screen with uid
+      final message = await verifyToken(idToken);
+      if(message.status){
+        if(message.uid!=null && message.name !=null){
+          UserSession().uid = message.uid!;
+          UserSession().name = message.name!;
+          // Navigate to main screen with uid
+        }
+        else{
+          setState(() {
+            errorMessage = "An error occurred";
+          });
+        }
       }
 
     } on FirebaseAuthException catch (e) {
@@ -128,7 +145,8 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
             'password':_passwordController.text
           }));
       if(res.statusCode == 201){
-        final uid = jsonDecode(res.body)['userId'];
+        UserSession().uid = jsonDecode(res.body)['userId'];
+        UserSession().name = _nameController.text;
         // navigate to amin screen with uid
       }else{
         setState(() {

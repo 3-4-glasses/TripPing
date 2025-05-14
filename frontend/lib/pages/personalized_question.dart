@@ -1,8 +1,31 @@
+import 'dart:convert';
+
 import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class PersonalizedQuestion extends StatefulWidget {
-  const PersonalizedQuestion({super.key});
+  final String tripName;
+  final String destination;
+  final DateTime? departureDate;
+  final TimeOfDay? departureTime;
+  final DateTime? returnDate;
+  final TimeOfDay? returnTime;
+  final int adultCount;
+  final int childCount;
+  final String transportation;
+  final String uid;
+  const PersonalizedQuestion({super.key,
+    required this.tripName,
+    required this.destination,
+    this.departureDate,
+    this.departureTime,
+    this.returnDate,
+    this.returnTime,
+    required this.adultCount,
+    required this.childCount,
+    required this.transportation,
+    required this.uid});
 
   @override
   State<PersonalizedQuestion> createState() => _PersonalizedQuestionState();
@@ -12,16 +35,54 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
   final _dreamExperienceController = TextEditingController();
   String _validationError = '';
 
-  void _navigateFinish() {
+  Future<void> _navigateFinish() async {
     // In a real scenario, we would send the text to Gemini for validation here.
     // For now, we'll just navigate if the text box is not empty.
     if (_dreamExperienceController.text.isNotEmpty) {
-      // TODO: Implement the actual validation logic using Gemini (backend).
-      // For now, we'll just proceed.
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => MainPage()),
-        (Route<dynamic> route) => false,
+      final response = await http.post(
+        Uri.parse('https://backend-server-412321340776.us-west1.run.app/validate'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{'input': _dreamExperienceController.text}),
       );
+      if (response.statusCode == 201) {
+        print(jsonDecode(response.body)['valid']);
+        if(jsonDecode(response.body)['valid']){
+          final answer =  await http.post(Uri.parse('https://backend-server-412321340776.us-west1.run.app/itinerary'),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncode(<String, dynamic>{
+              'input': _dreamExperienceController.text,
+              'title': widget.tripName,
+              'destination': widget.destination,
+              "departureTime": widget.departureTime,
+              "returnTime": widget.returnTime,
+              "numChildren": widget.childCount,
+              "numAdult": widget.adultCount,
+              "preferredTransportation": widget.transportation,
+              "userId": widget.uid
+            })
+          );
+          if(answer.statusCode==200){
+            // Get trip, put trip data, terip data is in result, trip id if in triop id
+
+          }else{
+
+          }
+
+        }
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => MainPage()),
+              (Route<dynamic> route) => false,
+        );
+      } else {
+        // If the server did not return a 201 CREATED response,
+        // then throw an exception.
+        throw Exception('Failed to create album.');
+      }
     } else {
       setState(() {
         _validationError = 'Please describe your dream trip experience.';

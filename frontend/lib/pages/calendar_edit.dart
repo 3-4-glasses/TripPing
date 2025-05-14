@@ -10,7 +10,6 @@ class CalendarEditMode extends StatefulWidget {
   final DateTime? initialSelectedDay;
   final List<Event> events;
   final String tripId;
-
   const CalendarEditMode(
       {super.key, this.initialSelectedDay, this.events = const [], required this.tripId});
 
@@ -271,7 +270,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
         }
         return a.timeStart.compareTo(b.timeStart);
       });
-
+      // TODO here
       GlobalTripData.instance.notifyListeners();
       setState(() {
         _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);

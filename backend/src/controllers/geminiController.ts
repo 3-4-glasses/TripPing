@@ -68,6 +68,7 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
 const handleItinerary = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
+      title,
       userId,
       input,
       destination,
@@ -117,6 +118,7 @@ const handleItinerary = async (req: Request, res: Response): Promise<any> => {
     }
 
     const tripData = {
+      title: title,
       from: new Date(departureTime),
       to: new Date(returnTime),
       expensesUsed: finalizeJSON.estimatedExpenses || 0,

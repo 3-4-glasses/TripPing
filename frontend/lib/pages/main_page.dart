@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../data/global_trip_data.dart';
 import '../data/trip_data.dart';
 import 'package:apacsolchallenge/utilities/calendar_utils.dart';
+import '../data/global_user.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -21,7 +22,7 @@ class _MainPageState extends State<MainPage> {
   final tripData =
       GlobalTripData.instance.tripData; // Access the global TripData instance
   DateTime today = DateTime.now();
-  String username = "User";
+  String username = UserSession().name;
   bool _showExpenses = false;
 
   @override
