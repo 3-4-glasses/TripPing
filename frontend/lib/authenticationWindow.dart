@@ -53,7 +53,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
         if (decodedToken != null) {
           setState(() {
             // Set the errorMessage to the stringified decodedToken
-            errorMessage = 'Decoded Token: ${jsonEncode(decodedToken)}';
+            errorMessage = 'Fetching data...';
           });
 
           return (status: true, uid: decodedToken['uid'] as String?, name: decodedToken['name'] as String?);
@@ -332,7 +332,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                               height: 24,
                               width: 24,
                             ),
-                            label: Text("Login with Google", style: TextStyle(fontSize: 18)),
+                            label: Text("Continue with Google", style: TextStyle(fontSize: 18)),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -400,7 +400,7 @@ class _AuthenticationWindowState extends State<AuthenticationWindow> {
                             controller: _emailController,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
-                              hintText: "Your name",
+                              hintText: "Your email",
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) return 'Please enter your name';
