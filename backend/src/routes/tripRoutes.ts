@@ -8,7 +8,8 @@ import {
   deleteItem,
   deleteEvent,
   addVariableExpenses,
-  setBudget
+  setBudget,
+  deleteTrip
 } from '../controllers/tripController'; 
 
 const tripRouter = express.Router();
@@ -19,13 +20,15 @@ tripRouter.get('/itineraries', getAllItinerary);
 
 tripRouter.get('/all', getAllTrip);
 
-tripRouter.post('/activity', editActivity);
+tripRouter.post('/edit-itinerary', editActivity); 
 
 tripRouter.post('/item', addItem);
 
-tripRouter.delete('/item', deleteItem);
+tripRouter.delete('/item', deleteItem); 
 
-tripRouter.delete('/event', deleteEvent);
+tripRouter.delete('/delete',deleteTrip);
+
+tripRouter.post('/event', deleteEvent); 
 
 tripRouter.post('/variable-expenses', addVariableExpenses);
 

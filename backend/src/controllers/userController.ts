@@ -18,9 +18,19 @@ const registerUser = async (req: Request, res: Response):Promise<any>=>{
 const verifyidToken = async (req: Request, res: Response):Promise<any>=>{
   try{
     const tokenReq = req.body;
-    const decodedToken = await userService.verifyToken(tokenReq);
+    const decodedToken = await userService.verifyToken(req);
     return res.status(201).json({status: true, decodedToken});
   } catch(error: any){
+    return res.status(500).json({ status:false, error: error.message || error});
+  }
+}
+
+const changeUsername = async(req:Request,res:Response):Promise<any>=>{
+  try{
+    const {userId, username }= req.body;
+    const statusName = await userService.changeUserName(userId,username);
+    return res.status(200).json({status: statusName});
+  }catch(error:any){
     return res.status(500).json({ status:false, error: error.message || error});
   }
 }
@@ -37,4 +47,4 @@ const initializeUser = async (req: Request, res: Response):Promise<any> => {
   }
 }
 
-export {registerUser,verifyidToken,initializeUser}
+export {registerUser,verifyidToken,initializeUser,changeUsername}

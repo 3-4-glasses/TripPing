@@ -47,6 +47,7 @@ class _CalendarState extends State<Calendar> {
     });
   }
 
+
   List<Event> _getEventsFromTrip(Trip trip){
     List<Event> allEvents = [];
 
@@ -73,6 +74,7 @@ class _CalendarState extends State<Calendar> {
             timeEnd: endTime,
             title: activity.title,
             notes: activity.details,
+            locationDetail: activity.locationDetail==''? 'No location detail':activity.locationDetail!,
             isMultiDay: isMultiDay
           )
         );
@@ -128,9 +130,10 @@ class _CalendarState extends State<Calendar> {
           from: formatTimeOfDay(event.timeStart),
           to: formatTimeOfDay(event.timeEnd),
           details: event.notes,
+          locationDetail: event.locationDetail,
         );
       }).toList();
-
+      // TODO ADD ITINERARY IN DAATABSE AND WRUTE TGE UD FFS
       // Combine with existing activities if the dayKey already exists
       if (_trip.itineraries.containsKey(dayKey)) {
         _trip.itineraries[dayKey]!.activities.addAll(activitiesForDate);
@@ -350,7 +353,7 @@ class _CalendarState extends State<Calendar> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        "Location details need GMaps API",
+                        event.locationDetail,
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 14,
@@ -404,6 +407,7 @@ class Event {
   final String title;
   final String notes;
   final bool isMultiDay;
+  final String locationDetail;
 
   Event({
     required this.startDate,
@@ -411,7 +415,9 @@ class Event {
     required this.timeStart,
     required this.timeEnd,
     required this.title,
+    required this.locationDetail,
     this.notes = '',
+
     this.isMultiDay = false,
   });
 }

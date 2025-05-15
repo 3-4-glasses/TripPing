@@ -27,9 +27,36 @@ const createTrip = async (req: Request, res: Response): Promise<any> => {
     }
 }
 
+const deleteTrip = async(req:Request, res:Response): Promise<any>=>{
+    try{
+        const { userId, tripId }= req.body;    
+
+        if(!userId || userId === ''){
+            return res.status(400).json({ status: false, error: "userId is required" });
+        }
+        
+        if(!tripService.isUserExist(userId)){
+            return res.status(404).json({ status: false, error: "userId does not exist" });
+        }
+        if(!tripId || tripId === ''){
+            return res.status(400).json({ status: false, error: "tripId is required" });
+        }
+        
+        if(!tripService.isTripExist(userId,tripId)){
+            return res.status(404).json({ status: false, error: "tripId does not exist" });
+        }
+        
+        await tripService.deleteTrip(userId,tripId);
+        return res.status(204).json({ status: true });
+    }catch(error: any){
+        return res.status(500).json({ status: false, error: error.message || error });
+    }
+}
+
 const getItineraryIds = async(req:Request, res: Response): Promise<any>=>{
     try{
-        const {userId,tripId} = req.body;
+        const userId:string = req.query.userId as string;
+        const tripId:string = req.query.tripId as string;
         if(!userId || userId === ''){
             return res.status(400).json({ status: false, error: "userId is required" });
         }
@@ -54,7 +81,8 @@ const getItineraryIds = async(req:Request, res: Response): Promise<any>=>{
   
 const getAllItinerary = async (req:Request, res:Response): Promise<any>=>{
     try{
-        const {userId, tripId} = req.body;
+        const userId:string = req.query.userId as string; 
+        const tripId:string = req.query.tripId as string;
         if(!userId || userId === ''){
             return res.status(400).json({ status: false, error: "userId is required" });
         }
@@ -77,27 +105,37 @@ const getAllItinerary = async (req:Request, res:Response): Promise<any>=>{
     }
 }
 
-const getAllTrip = async (req:Request, res:Response): Promise<any>=>{
-    try{
-        const {userId} = req.body;
-        if(!userId || userId === ''){
-            return res.status(400).json({ status: false, error: "userId is required" });
-        }
-        
-        if(!tripService.isUserExist(userId)){
-            return res.status(404).json({ status: false, error: "userId does not exist" });
-        }
+const getAllTrip = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId: string = req.query.userId as string;
 
-        const trips = await tripService.getAllTrip(userId);
-        return res.status(200).json({status:true,trips:trips});
-    }catch(error: any){
-        return res.status(500).json({ status: false, error: error.message || error });
+    if (!userId || userId.trim() === '') {
+      return res.status(400).json({ status: false, error: "userId is required" });
     }
+
+    const userExists = await tripService.isUserExist(userId);
+    if (!userExists) {
+      return res.status(404).json({ status: false, error: "userId does not exist" });
+    }
+
+    const trips = await tripService.getAllTrip(userId);
+
+    // Optional: verify response
+    // console.log("trips:", JSON.stringify(trips, null, 2));
+
+    return res.status(200).json({ status: true, trips: trips });
+
+  } catch (error: any) {
+    console.error("getAllTrip error:", error);
+    return res.status(500).json({ status: false, error: error.message || error.toString() });
+  }
 }
 
+
 const editActivity = async (req:Request, res:Response): Promise<any>=>{
+    
     try{
-        const {userId, activityAddition, tripId, itineraryId} = req.body;
+        const {userId, itinerary, tripId} = req.body;
         if(!userId || userId === ''){
             return res.status(400).json({ status: false, error: "userId is required" });
         }
@@ -112,19 +150,60 @@ const editActivity = async (req:Request, res:Response): Promise<any>=>{
         if(!tripService.isTripExist(userId,tripId)){
             return res.status(404).json({ status: false, error: "tripId does not exist" });
         }        
-        if(!itineraryId || itineraryId === ''){
-            return res.status(400).json({ status: false, error: "itineraryId is required" });
+        if(!Array.isArray(itinerary)){
+            return res.status(400).json({ status: false, error: "Itinerary needs to be an array" });
         }
+        itinerary.forEach((day, index) => {
+            if (!day.date || !day.activities || !Array.isArray(day.activities)) {
+                return res.status(400).json({
+                status: false,
+                error: `Itinerary item at index ${index} is missing required fields or activities is not an array`,
+                });
+            }
 
-        if(!tripService.isItineraryExist(userId,tripId,itineraryId)){
-            return res.status(404).json({ status: false, error: "itineraryId does not exist" });
-        }
-        if (!activityAddition || !activityAddition.from || !activityAddition.to || !activityAddition.title) {
-            return res.status(400).json({ status: false, error: "Invalid activity structure" });
-        }
-        await tripService.editActivity(userId,activityAddition,tripId,itineraryId);
+            const date = new Date(day.date);
+            if (isNaN(date.getTime())) {
+                return res.status(400).json({
+                status: false,
+                error: `Invalid date format in itinerary at index ${index}`,
+                });
+            }
+
+            for (let i = 0; i < day.activities.length; i++) {
+                const activity = day.activities[i];
+                if (!activity.from || !activity.to || !activity.title || !activity.details) {
+                return res.status(400).json({
+                    status: false,
+                    error: `Missing required activity fields at itinerary[${index}].activities[${i}]`,
+                });
+                }
+
+                const from = new Date(activity.from);
+                const to = new Date(activity.to);
+                if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+                return res.status(400).json({
+                    status: false,
+                    error: `Invalid date in activity at itinerary[${index}].activities[${i}]`,
+                });
+                }
+
+                if (
+                activity.location &&
+                (typeof activity.location.latitude !== "number" ||
+                    typeof activity.location.longitude !== "number")
+                ) {
+                return res.status(400).json({
+                    status: false,
+                    error: `Invalid location in activity at itinerary[${index}].activities[${i}]`,
+                });
+                }
+            }
+        });
+
+        await tripService.editItinerary(userId, itinerary,tripId);
         return res.status(201).json({status:true,message:"success"});
     }catch(error: any){
+        console.log(`ERROR: ${error.message}`);
         return res.status(500).json({ status: false, error: error.message || error });
     }
 }
@@ -159,7 +238,7 @@ const addItem = async (req:Request, res:Response): Promise<any> =>{
 
 const deleteItem = async (req:Request, res:Response): Promise<any>=>{
     try{
-        const {userId, tripId, item} = req.body;
+        const { userId, tripId, item }= req.body;
 
         if (!userId || !tripId || !item) {
             return res.status(400).json({ status: false, error: 'Missing required fields: userId, tripId, or item' });
@@ -179,6 +258,7 @@ const deleteItem = async (req:Request, res:Response): Promise<any>=>{
 const deleteEvent = async (req:Request, res:Response): Promise<any>=>{
     try{
         const { userId, tripId, itineraryId, activity} = req.body;
+        
         
         if(!userId || userId === ''){
             return res.status(400).json({ status: false, error: "userId is required" });
@@ -264,5 +344,5 @@ const setBudget = async (req: Request, res: Response): Promise<any> => {
 
 export {createTrip, getItineraryIds, 
     getAllItinerary, getAllTrip, editActivity, 
-    addItem, deleteItem, 
+    addItem, deleteItem, deleteTrip,
     deleteEvent, addVariableExpenses, setBudget} 

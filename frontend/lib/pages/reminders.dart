@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../data/global_trip_data.dart';
+import '../data/global_user.dart';
 import '../data/trip_data.dart';
+import 'package:http/http.dart' as http;
 
 class RemindersPage extends StatefulWidget {
   const RemindersPage({super.key, required this.trip, this.onReminderAdded});
@@ -45,30 +49,58 @@ class _RemindersPageState extends State<RemindersPage> {
   Future<void> _addItem(String text) async {
     if (text.trim().isEmpty) return;
 
-    // IMPORTANT:  Update the Trip's ValueNotifier<List<String>>
-    List<String> currentItems = List.from(widget.trip.items.value); // Get a copy
-    currentItems.add(text.trim()); // Add the new item
-    widget.trip.items.value = currentItems; // Update the ValueNotifier
+    final res = await http.post(
+        Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/item'),
+        headers: <String,String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body:jsonEncode(<String, dynamic>{
+          'userId':UserSession().uid,
+          'tripId':widget.trip.id,
+          'item':text
+        })
+    );
+    if(res.statusCode==200){
+      // IMPORTANT:  Update the Trip's ValueNotifier<List<String>>
+      List<String> currentItems = List.from(widget.trip.items.value); // Get a copy
+      currentItems.add(text.trim()); // Add the new item
+      widget.trip.items.value = currentItems; // Update the ValueNotifier
 
-    //  Persist the change (if needed)  <--  You might have your own persistence.
-    // await _saveTripItems();  //  <--  Adapt this if you have custom saving.
 
-    GlobalTripData.instance.notifyListeners(); // Notify
-    _loadReminders(); // Keep UI in sync.
+      //  Persist the change (if needed)  <--  You might have your own persistence.
+      // await _saveTripItems();  //  <--  Adapt this if you have custom saving.
+      GlobalTripData.instance.notifyListeners(); // Notify
+      _loadReminders(); // Keep UI in sync.
+    }
+
   }
 
   // Delete item from trip's items list
   // TODO
   Future<void> _deleteItem(String itemText) async {
     // IMPORTANT: Update the Trip's ValueNotifier<List<String>>
-    List<String> currentItems = List.from(widget.trip.items.value);
-    currentItems.remove(itemText);
-    widget.trip.items.value = currentItems;
+    final res = await http.delete(
+        Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/item'),
+        headers: <String,String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body:jsonEncode(<String, dynamic>{
+          'userId':UserSession.instance.uid,
+          'tripId':widget.trip.id,
+          'item':itemText
+        })
+    );
+    if(res.statusCode==204){
+      List<String> currentItems = List.from(widget.trip.items.value);
+      currentItems.remove(itemText);
+      widget.trip.items.value = currentItems;
 
-    // Persist the change (if needed)
-    // await _saveTripItems();  // <-- Adapt
-    GlobalTripData.instance.notifyListeners();
-    _loadReminders();
+      // Persist the change (if needed)
+      // await _saveTripItems();  // <-- Adapt
+      GlobalTripData.instance.notifyListeners();
+      _loadReminders();
+    }
+
   }
 
   // Save trip items.  You'll need to adapt this to your persistence mechanism.

@@ -1,15 +1,21 @@
+import 'dart:convert';
+
+import 'package:apacsolchallenge/authenticationWindow.dart';
 import 'package:apacsolchallenge/pages/add_expenses.dart';
 import 'package:apacsolchallenge/pages/event_selection.dart';
 import 'package:apacsolchallenge/pages/expenses.dart';
 import 'package:apacsolchallenge/pages/general_question.dart';
 import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:apacsolchallenge/pages/map_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import '../data/global_trip_data.dart';
 import '../data/trip_data.dart';
 import 'package:apacsolchallenge/utilities/calendar_utils.dart';
 import '../data/global_user.dart';
+import 'package:http/http.dart' as http;
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -19,35 +25,58 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  final tripData =
-      GlobalTripData.instance.tripData; // Access the global TripData instance
+
+
+
   DateTime today = DateTime.now();
   String username = UserSession().name;
   bool _showExpenses = false;
+  late TripData tripData;
+
+  @override
+  void initState() {
+    super.initState();
+    tripData = GlobalTripData.instance.tripData;
+
+    // Listen for changes and call setState
+    tripData.trips.addListener(_onTripsChanged);
+  }
+
+  void _onTripsChanged() {
+    setState(() {}); // Rebuild when trips update
+  }
+
+  @override
+  void dispose() {
+    tripData.trips.removeListener(_onTripsChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final closestTrip = _findClosestTrip(tripData.trips.value, today);
+    final trips = tripData.trips.value;
+    final today = DateTime.now();
+    final closestTrip = _findClosestTrip(trips, today);
+    print("Trips length: ${tripData.trips.value.length}");
 
-    if (tripData.trips.value.isEmpty || closestTrip == null) {
+    if (trips.isEmpty || closestTrip == null) {
       return _buildNoTripsAvailableView(context);
     }
 
-    List<Activity> relevantInFuture = _getRelevantInFuture(closestTrip, today);
     final isInFuture = _isTripInFuture(closestTrip, today);
+    final isTomorrow = _isTripTomorrow(closestTrip, today);
+    final relevantInFuture = _getRelevantInFuture(closestTrip, today);
+
     if (isInFuture) {
       return _buildInTheFutureContent(context, closestTrip, relevantInFuture);
     }
 
-    final isTomorrow = _isTripTomorrow(closestTrip, today);
     if (isTomorrow) {
       return _buildTomorrowContent(context, closestTrip, relevantInFuture);
     }
 
-    List<Activity> relevantActivities =
-        _getRelevantActivities(closestTrip, today);
-    return _buildCompleteContent(
-        context, closestTrip, today, relevantActivities);
+    final relevantToday = _getRelevantActivities(closestTrip, today);
+    return _buildCompleteContent(context, closestTrip, today, relevantToday);
   }
 
   String _getGreeting() {
@@ -62,6 +91,7 @@ class _MainPageState extends State<MainPage> {
 
   Trip? _findClosestTrip(List<Trip> trips, DateTime today) {
     if (trips.isEmpty) {
+
       return null;
     }
 
@@ -324,9 +354,338 @@ class _MainPageState extends State<MainPage> {
     return previousDayActivities[0].activities.last;
   }
 
+  Widget _buildEstimatedTime(
+      List<Activity> relevantActivities, Activity? lastActivityFromPreviousDay) {
+    Activity? fromActivity;
+    Activity? toActivity;
+    String statusMessage = "";
+    bool isFirstTripOfDay = false;
+
+    final currentTime = TimeOfDay.now();
+    final currentHourMinutes = currentTime.hour * 60 + currentTime.minute;
+
+    // Debug info
+    print("Current time in minutes: $currentHourMinutes");
+    print("Relevant activities count: ${relevantActivities.length}");
+    if (relevantActivities.isNotEmpty) {
+      print(
+          "First activity: ${relevantActivities[0].title} at ${relevantActivities[0].from}");
+    }
+    if (lastActivityFromPreviousDay != null) {
+      print(
+          "Last activity from previous day: ${lastActivityFromPreviousDay.title}");
+    }
+
+    // Case 1: No activities today
+    if (relevantActivities.isEmpty) {
+      fromActivity = lastActivityFromPreviousDay;
+      toActivity = null;
+      statusMessage = "No where to go";
+      print("Case 1: No activities today - $statusMessage");
+    }
+    // Case 2: One activity today
+    else if (relevantActivities.length == 1) {
+      final activity = relevantActivities[0];
+      final activityStartMinutes =
+      _timeToMinutes(parseTime(activity.from));
+
+      if (activityStartMinutes > currentHourMinutes) {
+        // The activity is in the future - first trip of the day
+        if (lastActivityFromPreviousDay != null) {
+          fromActivity = lastActivityFromPreviousDay;
+          toActivity = activity;
+          isFirstTripOfDay = true;
+          print(
+              "Case 2A: One future activity. fromActivity = ${fromActivity.title}, toActivity = ${toActivity.title}");
+        } else {
+          // Missing origin point
+          fromActivity = null;
+          toActivity = activity;
+          statusMessage = "Cannot generate route";
+          print(
+              "Case 2B: One future activity but no previous day activity - $statusMessage");
+        }
+      } else {
+        // The activity is in the past or ongoing - nowhere to go next
+        fromActivity = activity;
+        toActivity = null;
+        statusMessage = "No where to go";
+        print("Case 2C: One past/ongoing activity - $statusMessage");
+      }
+    }
+    // Case 3: Multiple activities today
+    else {
+      final firstActivity = relevantActivities[0];
+      final firstActivityStartMinutes =
+      _timeToMinutes(parseTime(firstActivity.from));
+
+      if (firstActivityStartMinutes > currentHourMinutes) {
+        // The first activity is in the future - first trip of the day
+        if (lastActivityFromPreviousDay != null) {
+          fromActivity = lastActivityFromPreviousDay;
+          toActivity = firstActivity;
+          isFirstTripOfDay = true;
+          print(
+              "Case 3A: First activity is future. fromActivity = ${fromActivity.title}, toActivity = ${toActivity.title}");
+        } else {
+          // Missing origin point
+          fromActivity = null;
+          toActivity = firstActivity;
+          statusMessage = "Cannot generate route";
+          print(
+              "Case 3B: First activity is future but no previous day activity - $statusMessage");
+        }
+      } else {
+        // Current time is after or during first activity
+
+        // Find the current or most recent activity
+        int currentActivityIndex = 0;
+        for (int i = 0; i < relevantActivities.length; i++) {
+          final activity = relevantActivities[i];
+          final startMinutes = _timeToMinutes(parseTime(activity.from));
+
+          if (startMinutes <= currentHourMinutes) {
+            currentActivityIndex = i;
+          } else {
+            break;
+          }
+        }
+
+        fromActivity = relevantActivities[currentActivityIndex];
+
+        // Check if there's a next activity
+        if (currentActivityIndex + 1 < relevantActivities.length) {
+          toActivity = relevantActivities[currentActivityIndex + 1];
+          print(
+              "Case 3C: Between activities. fromActivity = ${fromActivity.title}, toActivity = ${toActivity.title}");
+        } else {
+          // No next activity - last activity of the day
+          toActivity = null;
+          statusMessage = "No where to go";
+          print("Case 3D: After last activity - $statusMessage");
+        }
+      }
+    }
+
+    // Final check based on main premise
+    if (toActivity?.location == null) {
+      statusMessage = "No where to go";
+    } else if (fromActivity?.location == null) {
+      statusMessage = "Cannot generate route";
+    }
+
+    // Determine display titles
+    final String fromTitle = lastActivityFromPreviousDay == null && isFirstTripOfDay
+        ? "Home"
+        : (fromActivity?.title ?? "No starting location");
+    final String toTitle = toActivity?.title ?? "No next location";
+
+    print("Final fromActivity: ${fromActivity?.title}");
+    print("Final toActivity: ${toActivity?.title}");
+    print("isFirstTripOfDay: $isFirstTripOfDay");
+    print("statusMessage: $statusMessage");
+
+    // Get estimated time if possible
+    String? estimatedTime;
+    if (statusMessage.isEmpty && fromActivity?.location != null && toActivity?.location != null) {
+      // Since we can't directly use async in a build method, we'll use FutureBuilder
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Recommended route",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("From:",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                        fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(fromTitle,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                const Text("To:",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                        fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(toTitle,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                const Text("Estimation:",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                        fontSize: 14)),
+                const SizedBox(height: 4),
+                FutureBuilder<String?>(
+                  future: getEstimatedTime(fromActivity!, toActivity!),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            "Calculating travel time...",
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      );
+                    } else if (snapshot.hasData && snapshot.data != null) {
+                      return Row(
+                        children: [
+                          Icon(Icons.access_time, size: 18, color: Theme.of(context).primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            snapshot.data!,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ],
+                      );
+                    } else {
+                      return const Text(
+                        "Could not estimate travel time",
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Use regular display with status message
+      return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Recommended route",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("From:",
+                      style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey,
+                          fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(fromTitle,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  const Text("To:",
+                      style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey,
+                          fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(toTitle,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  const Text("Estimation:",
+                      style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey,
+                          fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    statusMessage.isNotEmpty
+                        ? statusMessage
+                        : (fromActivity?.location != null && toActivity?.location != null
+                        ? ""
+                        : "No route available or location is not given"),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          );
+    }
+  }
+
   Widget _buildNoTripsAvailableView(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: Text(_getGreeting())),
+        appBar: AppBar(
+          title: Text(_getGreeting()),
+          actions: [
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.notifications),
+            ),
+            Builder(
+              builder: (context) => IconButton(
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+                icon: const Icon(Icons.menu),
+              ),
+            ),
+          ],
+        ),
+        endDrawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const DrawerHeader(
+                decoration: BoxDecoration(color: Colors.blue),
+                child: Text(
+                  'Settings',
+                  style: TextStyle(color: Colors.white, fontSize: 24),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Change Name'),
+                onTap: () => _changeName(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Logout'),
+                onTap: () => _logout(context),
+              ),
+            ],
+          ),
+        ),
+
         body: const Center(child: Text('No trips available. Add a new trip!')),
         bottomNavigationBar: _buildBottomNavigationBar(context));
   }
@@ -344,7 +703,8 @@ class _MainPageState extends State<MainPage> {
               children: [
                 Text(event.title,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                const Text("Location details: Need GMaps API")
+                Text(event.locationDetail!=null || event.locationDetail!='' ?
+                "Location details: ${event.locationDetail}" : "No location detail available")
               ],
             ),
           ),
@@ -822,7 +1182,7 @@ class _MainPageState extends State<MainPage> {
                   const SizedBox(width: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [ 
+                    children: [
                     ElevatedButton(onPressed: () {
                       Navigator.push(context, MaterialPageRoute(builder: (context){
                         return AddExpenses(tripId: closestTrip.id);
@@ -844,6 +1204,40 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+
+  Future<String?> getEstimatedTime(Activity fromActivity, Activity toActivity) async {
+    try {
+      final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+      if (apiKey == null || apiKey.isEmpty){
+        return null;
+      }
+
+      final origin = "${fromActivity.location!.latitude},${fromActivity.location!.longitude}";
+      final destination = "${toActivity.location!.latitude},${toActivity.location!.longitude}";
+
+      final url = Uri.parse('https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$destination&key=$apiKey');
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200){
+        final data = json.decode(response.body);
+
+        if (data['status'] == 'OK'){
+          final duration = data['routes'][0]['legs'][0]['duration']['text'];
+          return duration;
+        } else {
+          print('Directions API error: ${data['status']}');
+          return null;
+        }
+      } else {
+        print('Failed to fetch directions data: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting estimated time: $e');
+      return null;
+    }
+  }
   Widget _buildItineraryComplete(
       Trip closestTrip, DateTime today, List<Activity> relevantActivities) {
     return Padding(
@@ -910,8 +1304,29 @@ class _MainPageState extends State<MainPage> {
         title: Text(_getGreeting()),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.notifications)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.menu))
+          IconButton(onPressed: () => Scaffold.of(context).openEndDrawer(), icon: const Icon(Icons.menu))
         ],
+      ),
+      endDrawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Change Name'),
+              onTap: () => _changeName(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () => _logout(context),
+            ),
+          ],
+        ),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -935,10 +1350,43 @@ class _MainPageState extends State<MainPage> {
       appBar: AppBar(
         title: Text(_getGreeting()),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.notifications)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.menu))
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications),
+          ),
+          Builder(
+            builder: (context) => IconButton(
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+              icon: const Icon(Icons.menu),
+            ),
+          ),
         ],
       ),
+      endDrawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text(
+                'Settings',
+                style: TextStyle(color: Colors.white, fontSize: 24),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Change Name'),
+              onTap: () => _changeName(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () => _logout(context),
+            ),
+          ],
+        ),
+      ),
+
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -954,6 +1402,71 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(context),
+    );
+  }
+
+  void _changeName(BuildContext context) {
+    final TextEditingController _nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Change Name'),
+          content: TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(hintText: 'Enter new name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(), // Close dialog
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newName = _nameController.text.trim();
+                if (newName.isNotEmpty) {
+                  // Do something with the new name (e.g. update state or backend)
+                  final res = await http.post(
+                    Uri.parse('https://backend-server-412321340776.us-west1.run.app/user/rename'),
+                    headers: <String, String>{
+                      'Content-Type': 'application/json; charset=UTF-8',
+                    },
+                    body: jsonEncode(<String, String>{
+                      'userId': UserSession.instance.uid,
+                      'username': newName}),
+                    );
+                  if (res.statusCode == 200) {
+                    UserSession.instance.name = newName;
+                    setState(() {
+                      username = newName;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Name changed to "$newName"')),
+                    );
+                    Navigator.of(context).pop(); // Close dialog
+                  }
+
+                }
+
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+  Future<void> _logout(BuildContext context) async {
+    // Your logic to logout
+    await FirebaseAuth.instance.signOut();
+    UserSession.instance.uid = '';
+    UserSession.instance.name='';
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => AuthenticationWindow()),
     );
   }
 
@@ -977,17 +1490,50 @@ class _MainPageState extends State<MainPage> {
       appBar: AppBar(
         title: Text(_getGreeting()),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.notifications)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.menu))
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications),
+          ),
+          Builder(
+            builder: (context) => IconButton(
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+              icon: const Icon(Icons.menu),
+            ),
+          ),
         ],
       ),
+      endDrawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text(
+                'Settings',
+                style: TextStyle(color: Colors.white, fontSize: 24),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Change Name'),
+              onTap: () => _changeName(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () => _logout(context),
+            ),
+          ],
+        ),
+      ),
+
       body: SingleChildScrollView(
           child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(children: [
                 _buildItineraryComplete(closestTrip, today, relevantActivities),
                 const SizedBox(height: 16),
-                _buildRecommendedRoute(relevantActivities, lastActivityFromPreviousDay),
+                _buildEstimatedTime(relevantActivities, lastActivityFromPreviousDay),
                 const SizedBox(height: 16),
                 _buildExpensesComplete(closestTrip)
               ]))),

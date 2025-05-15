@@ -1,15 +1,21 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:apacsolchallenge/utilities/calendar_utils.dart';
 import 'package:apacsolchallenge/pages/calendar.dart';
 import '../data/global_trip_data.dart';
+import '../data/global_user.dart';
 import '../data/trip_data.dart';
+import 'package:http/http.dart' as http;
+
 
 class CalendarEditMode extends StatefulWidget {
   final DateTime? initialSelectedDay;
   final List<Event> events;
   final String tripId;
+  // final String ItineraryId;
   const CalendarEditMode(
       {super.key, this.initialSelectedDay, this.events = const [], required this.tripId});
 
@@ -24,21 +30,147 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
   DateTime? _selectedDay;
   late List<Event> _allEvents;
   List<Event> _selectedEvents = [];
-  late Trip _trip;
-
   // State for new/edited event input
+  // State for AI assistance. NOT USED YET. TODO god damn it
+  // TODO
+  Future<void> _addOrUpdateEvent() async {
+    if (_eventTitleController.text.isNotEmpty &&
+        _eventStartDate != null &&
+        _eventEndDate != null &&
+        _eventStartTime != null &&
+        _eventEndTime != null) {
+      // Validate event timing
+      final startDateTime =
+          CalendarUtils.combineDateAndTime(_eventStartDate!, _eventStartTime!);
+      final endDateTime =
+          CalendarUtils.combineDateAndTime(_eventEndDate!, _eventEndTime!);
+
+      if (endDateTime.isBefore(startDateTime)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('End time cannot be before start time')),
+        );
+        return;
+      }
+
+      // Check for time conflicts
+      if (_checkTimeConflict(
+          startDateTime, endDateTime, _eventStartTime!, _eventEndTime!, _editingIndex)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event time conflicts with another event')),
+        );
+        return;
+      }
+
+      Event newEvent = Event(
+        startDate: _eventStartDate!,
+        endDate: _eventEndDate!,
+        timeStart: _eventStartTime!,
+        timeEnd: _eventEndTime!,
+        title: _eventTitleController.text,
+        notes: _eventNotesController.text,
+        locationDetail: _locationDetailController.text,
+        isMultiDay: _isMultiDayEvent,
+      );
+
+      Activity newActivity = Activity(
+        from: CalendarUtils.formatTimeOfDay(_eventStartTime!),
+        to: CalendarUtils.formatTimeOfDay(_eventEndTime!),
+        title: _eventTitleController.text,
+        details: _eventNotesController.text,
+        locationDetail: _locationDetailController.text
+      );
+
+      DateTime tripDateFrom = DateTime.parse(_trip.dateFrom.value!);
+      int dayDifference =
+          _eventStartDate!.difference(tripDateFrom).inDays + 1;
+      String dayKey = "day$dayDifference";
+
+      //  Make sure the dayKey exists.
+      if (!_trip.itineraries.containsKey(dayKey)) {
+        _trip.itineraries[dayKey] = Itinerary(
+          // id: , TODO
+          date: DateFormat('yyyy-MM-dd').format(_eventStartDate!),
+          activities: [], //  Initialize with an empty list.
+        );
+      }
+      // Update or add
+      if (_editingIndex != null) {
+        // Update
+        _allEvents[_editingIndex!] = newEvent;
+
+        // Update activity
+        // TODO here
+        bool found = false;
+        for (var activity in _trip.itineraries[dayKey]!.activities)
+        {
+          if (activity.title == _eventTitleController.text)
+          {
+            activity.from = CalendarUtils.formatTimeOfDay(_eventStartTime!);
+            activity.to = CalendarUtils.formatTimeOfDay(_eventEndTime!);
+            activity.details = _eventNotesController.text;
+            found = true;
+            break;
+          }
+        }
+        if (!found)
+        {
+          _trip.itineraries[dayKey]!.activities.add(newActivity);
+        }
+
+      } else {
+        // Add
+        _allEvents.add(newEvent);
+
+        _trip.itineraries[dayKey]!.activities.add(newActivity);
+      }
+
+      // Sort
+      _allEvents.sort((a, b) {
+        int startTimeComparison = a.startDate.compareTo(b.startDate);
+        if (startTimeComparison != 0) {
+          return startTimeComparison;
+        }
+        return a.timeStart.compareTo(b.timeStart);
+      });
+
+      GlobalTripData.instance.notifyListeners();
+      await sendUpdatedItinerary(UserSession.instance.uid, _trip.id, _trip.itineraries);
+
+      setState(() {
+        _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);
+        _eventTitleController.clear();
+        _eventStartTime = null;
+        _eventEndTime = null;
+        _eventNotesController.clear();
+        _locationDetailController.clear();
+        _eventStartDate = _selectedDay;
+        _eventEndDate = _selectedDay;
+        _isMultiDayEvent = false;
+        _editingIndex = null; // Reset editing index
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Please fill in the event title, dates and times')),
+      );
+    }
+  }
+  // Function to check for time conflicts
+
+  late Trip _trip;
   final TextEditingController _eventTitleController = TextEditingController();
   DateTime? _eventStartDate;
   DateTime? _eventEndDate;
   TimeOfDay? _eventStartTime;
   TimeOfDay? _eventEndTime;
   final TextEditingController _eventNotesController = TextEditingController();
+  final TextEditingController _locationDetailController = TextEditingController();
   bool _isMultiDayEvent = false;
+
   int? _editingIndex; // Track the index of the event being edited, null for new events
 
-  // State for AI assistance. NOT USED YET.
   final TextEditingController _aiRequestController = TextEditingController();
-  final String _aiResponse = '';
 
   @override
   void initState() {
@@ -148,8 +280,6 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
   int _timeOfDayToMinutes(TimeOfDay time) {
     return time.hour * 60 + time.minute;
   }
-
-  // Function to check for time conflicts
   bool _checkTimeConflict(
     DateTime startDate, DateTime endDate, TimeOfDay startTime, TimeOfDay endTime,
       [int? excludeIndex]) {
@@ -176,126 +306,209 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     return false; 
   }
 
-  void _addOrUpdateEvent() {
-    if (_eventTitleController.text.isNotEmpty &&
-        _eventStartDate != null &&
-        _eventEndDate != null &&
-        _eventStartTime != null &&
-        _eventEndTime != null) {
-      // Validate event timing
-      final startDateTime =
-          CalendarUtils.combineDateAndTime(_eventStartDate!, _eventStartTime!);
-      final endDateTime =
-          CalendarUtils.combineDateAndTime(_eventEndDate!, _eventEndTime!);
+  String _ensureIsoDateTime(String time, String date) {
+    try {
+      // Check if `time` is full ISO 8601 datetime
+      final parsedFullDate = DateTime.tryParse(time.trim());
+      if (parsedFullDate != null) {
+        // It's already a full ISO datetime string
+        return parsedFullDate.toIso8601String();
+      }
 
-      if (endDateTime.isBefore(startDateTime)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('End time cannot be before start time')),
+      // Otherwise, assume `time` is "HH:mm" format
+
+      // Ensure `date` contains only yyyy-MM-dd part
+      final dateOnly = date.split('T').first;
+
+      final dateTimeString = '$dateOnly $time';
+      final combined = DateFormat("yyyy-MM-dd HH:mm").parse(dateTimeString);
+      return combined.toIso8601String();
+    } catch (e) {
+      print('Invalid date/time: $date + $time — $e');
+      throw FormatException('Invalid date or time: "$date", "$time"');
+    }
+  }
+
+
+  TimeOfDay _parseTimeOfDay(String time) {
+    final parts = time.split(':');
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+  }
+
+  Future<void> sendAIItineraryRequest(
+      String userId,
+      String tripId,
+      Map<String, Itinerary> itineraries,
+      String input,
+      ) async {
+    print("----");
+    print(itineraries);
+    print("----");
+    final itineraryPayload = prepareItineraryForApi(itineraries);
+    print("----");
+    print(itineraryPayload);
+    final response = await http.post(
+      Uri.parse('https://backend-server-412321340776.us-west1.run.app/gemini/editItenerary'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'userId': userId,
+        'tripId': tripId,
+        'itineraries': itineraryPayload,
+        'input': input,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      print("AI-generated itinerary received.");
+      final jsonResponse = jsonDecode(response.body);
+
+      // handle and update local state
+      final List<dynamic> newItinerary = jsonResponse['itinerary'];
+      print(newItinerary);
+      // Clear existing itineraries
+      _trip.itineraries.clear();
+      final Map<String, Itinerary> updatedItineraries = {};
+      // Rebuild from updated response
+      for (var day in newItinerary) {
+        final dateStr = day['date'];
+        final DateTime date = DateTime.parse(dateStr);
+        final String formattedDate = DateFormat('yyyy-MM-dd').format(date);
+
+
+        final List<Activity> activities = (day['activities'] as List).map((activity) {
+          return Activity(
+            from: DateFormat("HH:mm").format(DateTime.parse(activity['from'])),
+            to: DateFormat("HH:mm").format(DateTime.parse(activity['to'])),
+            title: activity['title'],
+            details: activity['details'],
+            locationDetail: activity['locationDetail'] ?? '',
+            location: activity['location'] != null &&
+                activity['location']['latitude'] != null &&
+                activity['location']['longitude'] != null
+                ? Location(
+              latitude: (activity['location']['latitude'] as num).toDouble(),
+              longitude: (activity['location']['longitude'] as num).toDouble(),
+            )
+                : null,
+
+          );
+        }).toList();
+        updatedItineraries["day${updatedItineraries.length + 1}"] = Itinerary(
+          date: formattedDate,
+          activities: activities,
         );
-        return;
       }
-
-      // Check for time conflicts
-      if (_checkTimeConflict(
-          startDateTime, endDateTime, _eventStartTime!, _eventEndTime!, _editingIndex)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Event time conflicts with another event')),
-        );
-        return;
-      }
-
-      Event newEvent = Event(
-        startDate: _eventStartDate!,
-        endDate: _eventEndDate!,
-        timeStart: _eventStartTime!,
-        timeEnd: _eventEndTime!,
-        title: _eventTitleController.text,
-        notes: _eventNotesController.text,
-        isMultiDay: _isMultiDayEvent,
-      );
-
-      Activity newActivity = Activity(
-        from: CalendarUtils.formatTimeOfDay(_eventStartTime!),
-        to: CalendarUtils.formatTimeOfDay(_eventEndTime!),
-        title: _eventTitleController.text,
-        details: _eventNotesController.text,
-      );
-
-      DateTime tripDateFrom = DateTime.parse(_trip.dateFrom.value!);
-      int dayDifference =
-          _eventStartDate!.difference(tripDateFrom).inDays + 1;
-      String dayKey = "day$dayDifference";
-
-      //  Make sure the dayKey exists.
-      if (!_trip.itineraries.containsKey(dayKey)) {
-        _trip.itineraries[dayKey] = Itinerary(
-          date: DateFormat('yyyy-MM-dd').format(_eventStartDate!),
-          activities: [], //  Initialize with an empty list.
-        );
-      }
-      // Update or add
-      if (_editingIndex != null) {
-        // Update
-        _allEvents[_editingIndex!] = newEvent;
-
-        // Update activity
-        bool found = false;
-        for (var activity in _trip.itineraries[dayKey]!.activities)
-        {
-          if (activity.title == _eventTitleController.text)
-          {
-            activity.from = CalendarUtils.formatTimeOfDay(_eventStartTime!);
-            activity.to = CalendarUtils.formatTimeOfDay(_eventEndTime!);
-            activity.details = _eventNotesController.text;
-            found = true;
-            break;
-          }
-        }
-        if (!found)
-        {
-          _trip.itineraries[dayKey]!.activities.add(newActivity);
-        }
-
-      } else {
-        // Add
-        _allEvents.add(newEvent);
-        _trip.itineraries[dayKey]!.activities.add(newActivity);
-      }
-
-      // Sort
-      _allEvents.sort((a, b) {
-        int startTimeComparison = a.startDate.compareTo(b.startDate);
-        if (startTimeComparison != 0) {
-          return startTimeComparison;
-        }
-        return a.timeStart.compareTo(b.timeStart);
-      });
-      // TODO here
-      GlobalTripData.instance.notifyListeners();
       setState(() {
+        // Replace the entire itinerary map at once
+        _trip.itineraries = updatedItineraries;
+
+        // Update events list based on new itineraries
+        _allEvents = [];
+        _trip.itineraries.forEach((key, itinerary) {
+          for (var activity in itinerary.activities) {
+            _allEvents.add(Event(
+              startDate: DateTime.parse(itinerary.date),
+              endDate: DateTime.parse(itinerary.date),
+              timeStart: _parseTimeOfDay(activity.from),
+              timeEnd: _parseTimeOfDay(activity.to),
+              title: activity.title,
+              notes: activity.details,
+              locationDetail: activity.locationDetail,
+              isMultiDay: false, // You may want to adjust this
+            ));
+          }
+        });
+
+        _allEvents.sort((a, b) {
+          int dateCompare = a.startDate.compareTo(b.startDate);
+          if (dateCompare != 0) return dateCompare;
+          return _timeOfDayToMinutes(a.timeStart).compareTo(_timeOfDayToMinutes(b.timeStart));
+        });
+
+        // Update selected events for the currently selected day
         _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);
-        _eventTitleController.clear();
-        _eventStartTime = null;
-        _eventEndTime = null;
-        _eventNotesController.clear();
-        _eventStartDate = _selectedDay;
-        _eventEndDate = _selectedDay;
-        _isMultiDayEvent = false;
-        _editingIndex = null; // Reset editing index
       });
+
+      GlobalTripData.instance.notifyListeners(); // Notifies UI
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Please fill in the event title, dates and times')),
-      );
+      print("AI itinerary generation failed: ${response.body}");
+    }
+  }
+
+
+  List<Map<String, dynamic>> prepareItineraryForApi(Map<String, Itinerary> itineraries) {
+    List<Map<String, dynamic>> payload = [];
+
+    itineraries.forEach((key, itinerary) {
+      // Extract only date part (yyyy-MM-dd) from itinerary.date
+      String dateOnly = itinerary.date.split('T').first;
+
+      payload.add({
+        'date': dateOnly,  // also send dateOnly here for consistency
+        'activities': itinerary.activities.map((activity) => {
+          'from': _ensureIsoDateTime(activity.from, dateOnly),
+          'to': _ensureIsoDateTime(activity.to, dateOnly),
+          'title': activity.title,
+          'details': activity.details,
+          'locationDetail': activity.locationDetail,
+          'location': activity.location != null
+              ? {
+            'latitude': activity.location!.latitude,
+            'longitude': activity.location!.longitude,
+          }
+              : null,
+        }).toList(),
+      });
+    });
+
+    return payload;
+  }
+
+  /// Converts 'HH:mm' + itinerary.date into full ISO 8601 string
+  DateTime _convertToFullDateTime(String dateStr, String timeStr) {
+    // Extract date only (ignore time in dateStr if present)
+    DateTime date = DateTime.parse(dateStr).toLocal();
+
+    // Parse time string "HH:mm"
+    final timeParts = timeStr.split(':');
+    if (timeParts.length != 2) {
+      throw FormatException('Invalid time format: $timeStr');
+    }
+    int hour = int.parse(timeParts[0]);
+    int minute = int.parse(timeParts[1]);
+
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+
+
+  Future<void> sendUpdatedItinerary(String userId, String tripId, Map<String, Itinerary> itineraries) async {
+    final itineraryPayload = prepareItineraryForApi(itineraries);
+
+    final response = await http.post(
+      Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/edit-itinerary'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'userId': userId,
+        'tripId': tripId,
+        'itinerary': itineraryPayload,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      print("Itinerary updated successfully");
+    } else {
+      print("Failed to update itinerary: ${response.body}");
     }
   }
 
   void _deleteEvent(Event event) {
-    setState(() {
+    setState(() async {
       _allEvents.remove(event);
-
       _trip.itineraries.forEach((key, itinerary) {
         itinerary.activities.removeWhere((activity) =>
             activity.title == event.title &&
@@ -303,6 +516,8 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
             activity.to == CalendarUtils.formatTimeOfDay(event.timeEnd));
       });
       GlobalTripData.instance.notifyListeners();
+      await sendUpdatedItinerary(UserSession.instance.uid, _trip.id, _trip.itineraries);
+
 
       _selectedEvents = CalendarUtils.getEventsForDay(_allEvents, _selectedDay!);
     });
@@ -325,9 +540,10 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
     });
   }
 
-  void _confirmChanges() {
+  Future<void> _confirmChanges() async {
     GlobalTripData.instance.notifyListeners();
     print(_allEvents.first.title);
+    await sendUpdatedItinerary(UserSession.instance.uid, _trip.id, _trip.itineraries);
     Navigator.pop(context, _allEvents);
   }
 
@@ -543,7 +759,7 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 10,  vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -598,6 +814,12 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                       )],
                     ),
                   TextField(
+                    controller: _locationDetailController,
+                    decoration:
+                    const InputDecoration(labelText: 'Location detail (Optional'),
+                    maxLines: 2,
+                  ),
+                  TextField(
                     controller: _eventNotesController,
                     decoration:
                         const InputDecoration(labelText: 'Notes (Optional)'),
@@ -619,12 +841,16 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                      onPressed: () {}, child: const Text('Send')),
-                  if (_aiResponse.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(_aiResponse),
-                    ),
+                      onPressed: () async {
+                        print("Pressed");
+                        await sendAIItineraryRequest(
+                      UserSession.instance.uid,
+                      _trip.id,
+                      _trip.itineraries,
+                      _aiRequestController.text.trim(),
+                      );
+                        print("Done");
+                      }, child: const Text('Send')),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -647,8 +873,8 @@ class _CalendarEditModeState extends State<CalendarEditMode> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      _confirmChanges();
+                    onPressed: () async {
+                      await _confirmChanges();
                     },
                     child:
                         const Text('Confirm', style: TextStyle(fontSize: 16)),

@@ -2,22 +2,26 @@ import * as geminiService from '../services/geminiServices';
 import { Request, Response } from 'express';
 import {createTrip, isTripExist, isUserExist, isItineraryExist} from '../services/tripServices'
 import { Activity, Itinerary} from '../struct';
-import { editActivity } from '../services/tripServices';
+import { editItinerary } from '../services/tripServices';
 import admin from 'firebase-admin';
 
 const validateInput = async (req: Request, res: Response):Promise<any>=>{
   try {
     const {input} = req.body;
+    console.log(`Validate INput: ${input}`);
     const validity:boolean = await geminiService.validateInput(input);
+    console.log(validity);
     return res.status(201).json({ status: true, valid:validity });
   } catch (error: any) {
+    console.log(`Error on validateInput: ${error.message || error}`);
     return res.status(500).json({ status: false, error: error.message || error});
   } 
 }
 
 const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
   try{
-    const {userId, tripId, itineraryId, previousActivty, input} = req.body;
+    const {userId, tripId, itineraries, input} = req.body;
+    console.log(JSON.stringify(itineraries));
     if(!input || input === ''){
       return res.status(400).json({ status: false, error: "input is empty" });
     }
@@ -35,29 +39,62 @@ const addItineraryAI = async(req:Request, res: Response): Promise<any>=>{
     if(!isTripExist(userId,tripId)){
       return res.status(404).json({ status: false, error: "tripId does not exist" });
     }        
-    if(!itineraryId || itineraryId === ''){
-      return res.status(400).json({ status: false, error: "itineraryId is required" });
-    }
+    if(!Array.isArray(itineraries)){
+            return res.status(400).json({ status: false, error: "Itinerary needs to be an array" });
+        }
+        itineraries.forEach((day, index) => {
+            if (!day.date || !day.activities || !Array.isArray(day.activities)) {
+                return res.status(400).json({
+                status: false,
+                error: `Itinerary item at index ${index} is missing required fields or activities is not an array`,
+                });
+            }
 
-    if(!isItineraryExist(userId,tripId,itineraryId)){
-      return res.status(404).json({ status: false, error: "itineraryId does not exist" });
-    }
+            const date = new Date(day.date);
+            if (isNaN(date.getTime())) {
+                return res.status(400).json({
+                status: false,
+                error: `Invalid date format in itinerary at index ${index}`,
+                });
+            }
 
-    if(!Array.isArray(previousActivty)){
-      return res.status(400).json({ status: false, error: "previous activity needs to be an array" });
-    }
-    for(const activity of previousActivty){
-      if (!activity || !activity.from || !activity.to || !activity.title) {
-        return res.status(400).json({ status: false, error: "Invalid activity structure" });
-      }
-    }
-    const finalizeActivity: Activity[]= await geminiService.itenararyAI(previousActivty,input);
-    const editActivityStatus:boolean = await editActivity(userId,finalizeActivity,tripId,itineraryId);
-    if(editActivityStatus){
-      return res.status(201).json({ status: true, updatedActivity:finalizeActivity });
-    }else{
-      return res.status(400).json({ status: true, message:"activity needs to be an array" });
-    }
+            for (let i = 0; i < day.activities.length; i++) {
+                const activity = day.activities[i];
+                if (!activity.from || !activity.to || !activity.title || !activity.details) {
+                return res.status(400).json({
+                    status: false,
+                    error: `Missing required activity fields at itinerary[${index}].activities[${i}]`,
+                });
+                }
+
+                const from = new Date(activity.from);
+                const to = new Date(activity.to);
+                if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+                return res.status(400).json({
+                    status: false,
+                    error: `Invalid date in activity at itinerary[${index}].activities[${i}]`,
+                });
+                }
+
+                if (
+                activity.location &&
+                (typeof activity.location.latitude !== "number" ||
+                    typeof activity.location.longitude !== "number")
+                ) {
+                return res.status(400).json({
+                    status: false,
+                    error: `Invalid location in activity at itinerary[${index}].activities[${i}]`,
+                });
+                }
+            }
+        });
+
+    const finalizeItinerary: Itinerary[]= await geminiService.itenararyAI(itineraries,input);
+
+    console.log(JSON.stringify(finalizeItinerary));
+
+    return res.status(201).json({ status: true, itinerary:finalizeItinerary });
+    
 
   } catch(error: any){
     console.log(`error on addItineraryAI ${error}`);
@@ -124,7 +161,7 @@ const handleItinerary = async (req: Request, res: Response): Promise<any> => {
       expensesUsed: finalizeJSON.estimatedExpenses || 0,
       expensesLimit: finalizeJSON.expensesLimit || 0,
       setExpenses: finalizeJSON.setExpenses || [],
-      variableExpenses: finalizeJSON.variableExpenses || []
+      variableExpenses: finalizeJSON.variableExpenses || [],
     };
 
     const itineraryArray: Itinerary[] = [];
@@ -149,7 +186,8 @@ const handleItinerary = async (req: Request, res: Response): Promise<any> => {
             details: act.details,
             location: act.location
               ? new admin.firestore.GeoPoint(act.location.latitude, act.location.longitude)
-              : undefined
+              : undefined,
+            locationDetail: act.locationDetail ? act.locationDetail : ""
           };
         });
 

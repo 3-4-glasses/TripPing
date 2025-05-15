@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 import {Client,TextSearchRequest,PlaceType1,LatLng} from '@googlemaps/google-maps-services-js';
-import { Activity } from "../struct";
+import { Activity, Itinerary } from "../struct";
 import { sanitizeJsonString } from "../utils/jsonSanitizer";
 import admin from 'firebase-admin';
 
@@ -27,6 +27,7 @@ async function validateInput(input: string): Promise<boolean>{
   const result = await model.generateContent([systemInst, input]);
   const response = await result.response;
   const text = await response.text();
+  console.log(text);
   return text.trim().toLowerCase() === 'true';
 }
 
@@ -96,12 +97,14 @@ function getParams(item: any){
       return request;
 }
 
-async function itenararyAI(previousActivity:Activity[] ,input: string): Promise<Activity[]> {
+async function itenararyAI(tripItinerary:Itinerary[] ,input: string): Promise<Itinerary[]> {
   const systemInst = `
     You are an assistant that generates Google Places Text Search API query JSON.
-    Your task is to extract structured information from a free-text plan description written by a user, to be used as a complement to the existing activities.
+    You will be given two inputs, the user's intent and the trip's entire itinerary
     The user's message may contain destination, travel dates, activity preferences, time references, and miscellaneous instructions.
-    Make sure it matches the previous activities provided, and according to the user's plan,
+    The entirety of the trip's itinerary with its activity for each day will be given
+    
+    Your task is to create a query for google places that aligns with the user's intent, AND the trip's existing itinerary
     IMPORTANT: MAKE SURE QUERY IS WITHIN THE SAME GENERAL AREA AS THE PREVIOUS ACTIVITIES; 
       For example: if the previous activities are generally located in Bali, dont give locations that are in other parts of indonesia
     Return the data in the following in a strict JSON format, no explanations:
@@ -152,7 +155,7 @@ async function itenararyAI(previousActivity:Activity[] ,input: string): Promise<
         "allowsDogs": [boolean],
         "accessibilityOptions": [string],
   `;
-  const result = await model.generateContent([systemInst, `User's input: ${input} Previous activities: ${previousActivity}`]);
+  const result = await model.generateContent([systemInst, `User's input: ${input} Trip's itinerary: ${JSON.stringify(tripItinerary)}`]);
   const response = await result.response;
   const text = await response.text();
   let parsed;
@@ -195,61 +198,129 @@ IMPORTANT:
 - You may rearrange events to fit the user's intent
 - Ensure the new locations match the same area as the previous activities.
 - Format your response as strict JSON like this:
+- If there are no location, pleaase exclude 
+- Each activity MUST have "from" and "to" time fields in HH:mm format.
+- If exact time is unknown, use approximate times (e.g. "09:00", "18:00").
+- Do NOT omit or nullify the "from" or "to" fields.
 [
   {
-    "from": "09:00",
-    "to": "10:30",
-    "title": "Visit Tanah Lot Temple",
-    "location": {
-      "latitude": -8.6216,
-      "longitude": 115.0866
-    },
-    "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
-    "locationDetails": "Tanah Lot, Tabanan Regency, Bali"
+    “date”: “01-01-2025”,
+    “activities”: [
+      {
+        "from": "09:00",
+        "to": "10:30",
+        "title": "Visit Tanah Lot Temple",
+        "location": {
+          "latitude": -8.6216,
+          "longitude": 115.0866
+        },
+        "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
+        "locationDetail": "Tanah Lot, Tabanan Regency, Bali"
+      },
+      {
+        "from": "11:00",
+        "to": "12:00",
+        "title": "Local market tour",
+        "details": "Support local artisans by exploring handmade crafts and regional food."
+      },
+      ...
+    ]
   },
-  ...
+    {
+    “date”: “01-01-2025”,
+    “activities”: [
+      {
+        "from": "09:00",
+        "to": "10:30",
+        "title": "Visit Tanah Lot Temple",
+        "location": {
+          "latitude": -8.6216,
+          "longitude": 115.0866
+        },
+        "details": "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
+        "locationDetail": "Tanah Lot, Tabanan Regency, Bali"
+      },
+      {
+        "from": "11:00",
+        "to": "12:00",
+        "title": "Local market tour",
+        "details": "Support local artisans by exploring handmade crafts and regional food."
+      },
+      ...
+    ]
+  }
 ]
   `
   const prompt=`
-  User intent: to add ${input}
-Previous activity: ${JSON.stringify(previousActivity)}
+  User intent: ${input}
+  Trip's itinerary: ${JSON.stringify(tripItinerary)}
 ${hasProposals ? `Proposed places: ${JSON.stringify(addActivityRes)}` : ''}
   `;
   console.log(prompt);
   const resultClean = await model.generateContent([cleanUpInst, prompt]);
   const responseClean = await resultClean.response;
   const textClean = await responseClean.text();
-  const cleanedActivity: Activity[] = [];
-  console.log("-----------");
-  console.log(textClean);
-  console.log("-----------");
-  try{
-    parsed = JSON.parse(sanitizeJsonString(textClean));
-    for (const activity of parsed) {
-      const activityDoc: any = {
-        from: activity.from,
-        to: activity.to,
-        title: activity.title,
-        details: activity.details,
-      };
+  const cleanedItinerary: Itinerary[] = [];
 
-      if (activity.location) {
-        activityDoc.location = new admin.firestore.GeoPoint(
-          activity.location.latitude || activity.location._latitude,
-          activity.location.longitude || activity.location._longitude
-        );
+  try {
+    parsed = JSON.parse(sanitizeJsonString(textClean));
+    console.log();
+    console.log(textClean);
+
+    for (const day of parsed) {
+      if (!Array.isArray(day.activities) || !day.date) continue;
+
+      const activityList: Activity[] = [];
+
+      for (const activity of day.activities) {
+        // Normalize time strings, add seconds if missing
+        let fromTime = activity.from;
+        if (fromTime && fromTime.length === 5) fromTime += ":00";
+
+        let toTime = activity.to;
+        if (toTime && toTime.length === 5) toTime += ":00";
+
+      // Combine day.date with time, add 'Z' for UTC
+      const fromDate = fromTime ? new Date(`${day.date}T${fromTime}Z`) : null;
+      const toDate = toTime ? new Date(`${day.date}T${toTime}Z`) : null;
+        
+        const activityDoc: Activity = {
+          from: fromDate!,
+          to: toDate!,
+          title: activity.title,
+          details: activity.details,
+        };
+        if (activity.location) {
+          const lat = activity.location.latitude ?? activity.location._latitude;
+          const lng = activity.location.longitude ?? activity.location._longitude;
+
+          // Validate that lat and lng are numbers
+          if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
+            activityDoc.location = new admin.firestore.GeoPoint(lat, lng);
+          }
+        }
+
+
+        if (activity.locationDetail) {
+          activityDoc.locationDetail = activity.locationDetail;
+        }
+
+        activityList.push(activityDoc);
       }
 
-      cleanedActivity.push(activityDoc);
+      cleanedItinerary.push({
+        date: new Date(day.date),
+        activities: activityList,
+      });
     }
-
-  } catch(error){
-    console.log(error);
+  } catch (error) {
+    console.log("Error parsing cleaned itinerary:", error);
     throw error;
   }
-  
-  return cleanedActivity;
+
+  return cleanedItinerary;
 }
+
 async function cleanJSON(input:string){
   const placeJson: Record<string, any> = {};
   const miscellaneousJson: Record<string, any> = {};
@@ -295,8 +366,14 @@ You are an assistant that generates Google Places Text Search API query JSON.
 
 The user provides structured itinerary data for each day of their trip. Each field is an array of the same length. Each index represents one planned activity. For example, the first item in 'location', 'type', 'servesLunch', etc., all describe the same place intent.
 
+
 Your job is to generate one or more API query objects for each day.
-If the cleanJSON's day length is lesser than the total time(departureTime, and returnTime), give suggestion within the same destination as if to plan an itenerary in the destination
+
+departureTime and returnTime is in unixMs format
+
+IMPORTANT:If the cleanJSON's day length is lesser than the total time(departureTime, and returnTime), give place suggestion within the same destination as if to plan an itenerary in the destination
+IMPORTANT: The place suggestion must be in the form of the query, and if you dont know exact location, exclude location and radius.
+IMPORTANT: Make sure to prioritize local cultures, but do not search all regarding local culture
 
 Return strict JSON with this structure, where fields with ? are optional:
 {
@@ -354,7 +431,11 @@ Instructions:
     - "hasLiveMusic" → "live music"
     - "isGoodForGroups" → "good for groups"
     - Always append "in ${destination}" at the end of the query string to restrict location
-
+  - If the cleanJSON's day length is lesser than the total time(departureTime, and returnTime), give query suggestion within the same destination as if to plan an itenerary in the destination
+    - IMPORTANT: The place suggestion must be in the form of the query, and if you dont know exact location, exclude location and radius.
+    - IMPORTANT: Make sure to prioritize local cultures or the points noted below, but do not search all regarding that, IT must be a balance
+      - Supporting eco-friendly and sustainable tourism
+      - Encouraging meaningful, low-impact travel experiences
 2. Set "location's longitude and latitude" using a known coordinate (if unavailable, omit).
 3. Set "radius" based on the transport mode, AND only if there is an existing location set:
 

@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:apacsolchallenge/data/trip_data.dart';
 import '../data/global_trip_data.dart';
 import '../data/global_user.dart';
+import 'package:http/http.dart' as http;
+
 
 class Expenses extends StatefulWidget {
   const Expenses({super.key, required this.trip});
@@ -42,16 +46,29 @@ class _ExpensesState extends State<Expenses> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 // Parse the input value and update the budget
                 final newBudget = double.tryParse(_budgetController.text);
                 if (newBudget != null) {
                   widget.trip.expensesLimit.value = newBudget; // Update the ValueNotifier
                   Navigator.of(context).pop(); // Close the dialog
                   tripDataInstance.notifyListeners(); // Use the instance directly
-                  // TODO
-
-                  _showSnackBar("Budget updated successfully");
+                  final res = await http.post(
+                    Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/budget'),
+                    headers: <String,String>{
+                      'Content-Type': 'application/json; charset=UTF-8',
+                    },
+                    body:jsonEncode(<String, dynamic>{
+                      'userId':UserSession().uid,
+                      'tripId':widget.trip.id,
+                      'amount':newBudget
+                    })
+                  );
+                  if(res.statusCode==200){
+                    _showSnackBar("Budget updated successfully");
+                  }else{
+                    _showSnackBar(jsonDecode(res.body)['error']);
+                  }
                 } else {
                   // Show an error message if the input is invalid
                   _showSnackBar(

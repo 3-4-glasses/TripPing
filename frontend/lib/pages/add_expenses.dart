@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:apacsolchallenge/data/global_trip_data.dart';
 import 'package:flutter/material.dart';
 import '../data/trip_data.dart';
 import '../data/global_user.dart';
+import 'package:http/http.dart' as http;
 
 class AddExpenses extends StatefulWidget {
   const AddExpenses({super.key, required this.tripId});
@@ -31,7 +34,7 @@ class _AddExpensesState extends State<AddExpenses> {
     super.dispose();
   }
 
-  void _addExpense() {
+  Future<void> _addExpense() async {
     if (_formKey.currentState!.validate()) {
       final expenseName = _expenseNameController.text;
       final expenseAmount = double.parse(_expenseAmountController.text);
@@ -52,10 +55,30 @@ class _AddExpensesState extends State<AddExpenses> {
         _expenseNameController.clear();
         _expenseAmountController.clear();
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense added successfully')),
+      final res = await http.post(
+          Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/variable-expenses'),
+          headers: <String,String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          body:jsonEncode(<String, dynamic>{
+            'userId':UserSession().uid,
+            'tripId':widget.tripId,
+            'item':{
+              'name':expenseName,
+              'value':expenseAmount
+            }
+          })
       );
+      if(res.statusCode==200){
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Expense added successfully')),
+        );
+      }else{
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(jsonDecode(res.body)['error'])),
+        );
+      }
+
     }
   }
 

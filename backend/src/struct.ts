@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 
 export interface Trip{
   id?: String,
+  title:String,
   from: admin.firestore.Timestamp,
   to: admin.firestore.Timestamp,
   expensesUsed: number,
@@ -17,6 +18,7 @@ export interface Activity {
   to: Date;
   title: string;
   details: string;
+  locationDetail?: string;
   location?: admin.firestore.GeoPoint;
 }
 

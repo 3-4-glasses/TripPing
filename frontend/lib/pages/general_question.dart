@@ -179,7 +179,6 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
             adultCount: _adultCount,
             childCount: _childCount,
             transportation: _transportationController.text,
-            uid: UserSession().uid,
           ),
         ),
       );

@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:apacsolchallenge/pages/main_page.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../data/global_trip_data.dart';
+import '../data/global_user.dart';
+import '../data/trip_data.dart';
 
 class PersonalizedQuestion extends StatefulWidget {
   final String tripName;
@@ -14,7 +17,6 @@ class PersonalizedQuestion extends StatefulWidget {
   final int adultCount;
   final int childCount;
   final String transportation;
-  final String uid;
   const PersonalizedQuestion({super.key,
     required this.tripName,
     required this.destination,
@@ -24,8 +26,7 @@ class PersonalizedQuestion extends StatefulWidget {
     this.returnTime,
     required this.adultCount,
     required this.childCount,
-    required this.transportation,
-    required this.uid});
+    required this.transportation});
 
   @override
   State<PersonalizedQuestion> createState() => _PersonalizedQuestionState();
@@ -35,21 +36,28 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
   final _dreamExperienceController = TextEditingController();
   String _validationError = '';
 
+
+  int _timeOfDayToUnixMs(TimeOfDay time) {
+    final now = DateTime.now();
+    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    return dt.millisecondsSinceEpoch; // Return the milliseconds since epoch
+  }
+
+
   Future<void> _navigateFinish() async {
     // In a real scenario, we would send the text to Gemini for validation here.
     // For now, we'll just navigate if the text box is not empty.
     if (_dreamExperienceController.text.isNotEmpty) {
       final response = await http.post(
-        Uri.parse('https://backend-server-412321340776.us-west1.run.app/validate'),
+        Uri.parse('https://backend-server-412321340776.us-west1.run.app/gemini/validate'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode(<String, String>{'input': _dreamExperienceController.text}),
       );
       if (response.statusCode == 201) {
-        print(jsonDecode(response.body)['valid']);
         if(jsonDecode(response.body)['valid']){
-          final answer =  await http.post(Uri.parse('https://backend-server-412321340776.us-west1.run.app/itinerary'),
+          final answer =  await http.post(Uri.parse('https://backend-server-412321340776.us-west1.run.app/gemini/itinerary'),
             headers: <String, String>{
               'Content-Type': 'application/json; charset=UTF-8',
             },
@@ -57,31 +65,110 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
               'input': _dreamExperienceController.text,
               'title': widget.tripName,
               'destination': widget.destination,
-              "departureTime": widget.departureTime,
-              "returnTime": widget.returnTime,
+              "departureTime": _timeOfDayToUnixMs(widget.departureTime!),
+              "returnTime": _timeOfDayToUnixMs(widget.returnTime!),
               "numChildren": widget.childCount,
               "numAdult": widget.adultCount,
               "preferredTransportation": widget.transportation,
-              "userId": widget.uid
+              "userId": UserSession.instance.uid
             })
           );
-          if(answer.statusCode==200){
-            // Get trip, put trip data, terip data is in result, trip id if in triop id
+          if (answer.statusCode == 200) {
+            final json = jsonDecode(answer.body);
+            final result = json['result'];
 
-          }else{
+            final tripId = UniqueKey().toString();
+            final name = widget.tripName;
+            final fromDate = widget.departureTime.toString().split(" ").first;
+            final toDate = widget.returnTime.toString().split(" ").first;
+
+            List<Map<String, dynamic>> fixedExpenses = (result['setExpenses'] as List).map((e) {
+              return {'item': e['item'], 'price': (e['price'] as num).toDouble()};
+            }).toList();
+
+            List<Map<String, dynamic>> variableExpenses = (result['variableExpenses'] as List).map((e) {
+              return {'item': e['item'], 'price': (e['price'] as num).toDouble()};
+            }).toList();
+
+            Map<String, Itinerary> itineraryMap = {};
+            for (var key in result.keys) {
+              if (key.startsWith("day")) {
+                final day = result[key];
+                final date = day["date"];
+                final activitiesJson = day["activities"] as List;
+
+                List<Activity> activities = activitiesJson.map((activityJson) {
+                  final location = activityJson['location'];
+                  return Activity(
+                    from: activityJson['from'],
+                    to: activityJson['to'],
+                    title: activityJson['title'],
+                    details: activityJson['details'],
+                    locationDetail: activityJson['locationDetail'],
+                    location: location != null
+                        ? Location(
+                      latitude: (location['latitude'] as num).toDouble(),
+                      longitude: (location['longitude'] as num).toDouble(),
+                    )
+                        : null,
+                  );
+                }).toList();
+
+                itineraryMap[key] = Itinerary(date: date, activities: activities);
+              }
+            }
+
+            final newTrip = Trip(
+              id: tripId,
+              name: ValueNotifier<String>(name),
+              dateFrom: ValueNotifier<String?>(fromDate),
+              dateTo: ValueNotifier<String?>(toDate),
+              expensesUsed: ValueNotifier<double>(result['estimatedExpenses']?.toDouble() ?? 0.0),
+              expensesLimit: ValueNotifier<double>(result['expensesLimit']?.toDouble() ?? 0.0),
+              items: ValueNotifier<List<String>>([]),
+              fixedExpenses: ValueNotifier<List<Map<String, dynamic>>>(fixedExpenses),
+              variableExpenses: ValueNotifier<List<Map<String, dynamic>>>(variableExpenses),
+              itineraries: itineraryMap,
+            );
+
+            GlobalTripData.instance.addTrip(newTrip);
+
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => MainPage()),
+                  (Route<dynamic> route) => false,
+            );
+          } else {
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: Text("Trip Creation Failed"),
+                  content: Text("An error occurred: ${answer.body}"),
+                  actions: [
+                    TextButton(
+                      child: Text("OK"),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                );
+              },
+            );
 
           }
 
         }
+        else{
+          setState(() {
+            _validationError="Please enter a coherent plan, try again with the required field";
+          });
+        }
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => MainPage()),
-              (Route<dynamic> route) => false,
-        );
       } else {
         // If the server did not return a 201 CREATED response,
         // then throw an exception.
-        throw Exception('Failed to create album.');
+        setState(() {
+          _validationError="Backend error";
+        });
       }
     } else {
       setState(() {
@@ -132,6 +219,7 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
                 ),
               ),
             const SizedBox(height: 32.0),
+
             ElevatedButton(
               onPressed: _navigateFinish,
               child: const Text('Next'),

@@ -4,8 +4,13 @@
 //
 //
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'trip_data.dart'; 
+import 'package:intl/intl.dart';
+import 'trip_data.dart';
+import 'package:http/http.dart' as http;
+import '../data/global_user.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -19,121 +24,159 @@ class GlobalTripData extends ChangeNotifier{
 
   // Initialize the tripData
   void initialize() {
-    tripData = _createDummyTripData(); // Or load from storage/API
+    tripData = new TripData();
   }
 
-  TripData _createDummyTripData() {
+  Future<void> initializeDbData() async {
+    try {
+      final res = await http.get(
+      Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/all?userId=${UserSession.instance.uid}'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
 
-    final tripData = TripData();
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        print(body);
+        final tripsJson = body['trips'] ?? [];
 
-    final location1 = Location(latitude: -8.6216, longitude: 115.0866);
-    final location2 = Location(latitude: -8.4095, longitude: 115.1889);
-    final location3 = Location(latitude: -8.3405, longitude: 115.0919);
-    final location5 = Location(latitude: -8.3605, longitude: 112.0002);
+        await updateFromJson(tripsJson);
 
-    final activity1 = Activity(
-      from: "08:30",
-      to: "09:30",
-      title: "Visit Tanah Lot Temple",
-      location: location1,
-      details:
-          "Explore a scenic seaside Balinese Hindu temple and learn about local traditions.",
-    );
-    final activity2 = Activity(
-      from: "16:00",
-      to: "19:00",
-      title: "Local market tour",
-      details:
-          "Support local artisans by exploring handmade crafts and regional food.",
-    );
-    final activity5 = Activity(
-      from: "20:00",
-      to: "24:00",
-      title: "Dinner at the beach",
-      location: location5,
-      details:
-          "Get some fried scallops.",
-    );
-    final activity3 = Activity(
-      from: "14:00",
-      to: "16:00",
-      title: "Ubud Monkey Forest",
-      location: location2,
-      details: "Interact with playful monkeys in a sacred forest.",
-    );
-    final activity4 = Activity(
-      from: "10:00",
-      to: "12:00",
-      title: "Tegallalang Rice Terraces",
-      location: location3,
-      details: "Visit the beautiful rice fields",
-    );
+      } else {
+        throw Exception(res.body);
+        }
+      } catch (e) {
+        // On failure, fall back to dummy data
 
-    final itinerary1 = Itinerary(
-      date: "2025-05-14",
-      activities: [activity1, activity2, activity5],
-    );
-    final itinerary2 = Itinerary(
-      date: "2025-05-15",
-      activities: [activity3],
-    );
-    final itinerary3 = Itinerary(
-      date: "2025-05-16",
-      activities: [activity4],
-    );
+        tripData = new TripData();
+        print('Error fetching trips: $e');
+      }
+      notifyListeners();
+  }
+  Future<void> updateFromJson(List<dynamic> tripsJson) async {
+    final TripData newTripData = TripData();
+    for (var trip in tripsJson) {
+      try {
+        final res = await http.get(
+          Uri.parse(
+              'https://backend-server-412321340776.us-west1.run.app/trip/itineraries?userId=${UserSession.instance.uid}&tripId=${trip['id']}'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+        );
 
-    final trip1 = Trip(
-      id: 'trip1',
-      name: ValueNotifier<String>('Bali Adventure'),
-      dateFrom: ValueNotifier<String?>('2025-05-14'),
-      dateTo: ValueNotifier<String?>('2025-05-16'),
-      expensesUsed: ValueNotifier<double>(380.0),
-      expensesLimit: ValueNotifier<double>(1000.0),
-      items: ValueNotifier<List<String>>(['Sunscreen', 'Hat']),
-      variableExpenses: ValueNotifier<List<Map<String, dynamic>>>([]),
-      fixedExpenses: ValueNotifier<List<Map<String, dynamic>>>([
-        {'item': 'Accommodation', 'price': 300.0},
-        {'item': 'Transport', 'price': 80.0},
-      ]),
-      itineraries: {
-        'day1': itinerary1,
-        'day2': itinerary2,
-        'day3': itinerary3,
-      },
-    );
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          print('Full Response: $body');
 
-    final trip2 = Trip(
-      id: 'trip2',
-      name: ValueNotifier<String>('Japan Tour'),
-      dateFrom: ValueNotifier<String?>('2025-08-10'),
-      dateTo: ValueNotifier<String?>('2025-08-17'),
-      expensesUsed: ValueNotifier<double>(700.0),
-      expensesLimit: ValueNotifier<double>(2000.0),
-      items: ValueNotifier<List<String>>(['Passport', 'Charger']),
-      variableExpenses: ValueNotifier<List<Map<String, dynamic>>>([]),
-      fixedExpenses: ValueNotifier<List<Map<String, dynamic>>>([
-        {'item': 'Hotel', 'price': 600.0},
-        {'item': 'Train', 'price': 100.0},
-      ]),
-      itineraries: {
-        'day1': Itinerary(
-          date: '2025-08-11',
-          activities: [
-            Activity(
-              from: '10:00',
-              to: '17:00',
-              title: 'Tokyo City Tour',
-              details: 'Explore Tokyo',
-            ),
-          ],
-        ),
-      },
-    );
 
-    // Add the trip to the TripData
-    tripData.addTrip(trip1);
-    tripData.addTrip(trip2);
-    return tripData;
+          final itinerariesJson = body['iteneraries'] ?? [];  // Fixed typo from 'iteneraries' to 'itineraries'
+
+          // Check that itinerariesJson is a List
+          if (itinerariesJson is List) {
+            // Create a Map to hold itinerary data
+            Map<String, Itinerary> itineraries = {};
+
+            // Map each itinerary data to the Map
+            for (var itinerary in itinerariesJson) {
+              try {
+                String itineraryId = itinerary['id'];
+
+                // Parse the activities
+                List<Activity> activities = [];
+                for (var activityJson in itinerary['activities']) {
+
+                  DateTime fromDateTime = DateTime.fromMillisecondsSinceEpoch(
+                      (activityJson['from']['_seconds'] as int) * 1000);
+                  DateTime toDateTime = DateTime.fromMillisecondsSinceEpoch(
+                      (activityJson['to']['_seconds'] as int) * 1000);
+
+                  String fromTime = DateFormat('HH:mm').format(fromDateTime);
+                  String toTime = DateFormat('HH:mm').format(toDateTime);
+
+                  // Safely parse 'location' as a Map<String, dynamic>
+                  Map<String, dynamic> location = {};
+                  if (activityJson['location'] != null && activityJson['location'] is Map) {
+                    location = Map<String, dynamic>.from(activityJson['location']);
+                  }
+
+                  Activity activity = Activity.fromJson({
+                    'from': fromTime,  // Use the time string instead of DateTime
+                    'to': toTime,
+                    'title': activityJson['title'],
+                    'details': activityJson['details'],
+                    'location': location, // Ensure the location is correctly formatted
+                    'locationDetail': activityJson['locationDetail']
+                  });
+
+                  activities.add(activity);
+                }
+
+                Itinerary itineraryObj = Itinerary(
+                  // id:itineraryId, TODO
+                  date: itinerary['date'] ?? '',
+                  activities: activities,
+                );
+
+                itineraries[itineraryId] = itineraryObj;
+              } catch (e) {
+                print("Error processing itinerary: $e");
+              }
+            }
+
+            // Add itineraries to the trip
+            final fromTimestamp = trip['from'];
+            final toTimestamp = trip['to'];
+
+            final from = DateTime.fromMillisecondsSinceEpoch(
+                fromTimestamp['_seconds'] * 1000);
+            final to = DateTime.fromMillisecondsSinceEpoch(
+                toTimestamp['_seconds'] * 1000);
+
+            final List<dynamic> fixedExpensesList = trip['setExpenses'] ?? [];
+            final List<dynamic> variableExpensesList = trip['variableExpenses'] ?? [];
+
+            Trip newTrip = Trip(
+              id: trip['id'] ?? '',
+              name: ValueNotifier<String>(trip['title'] ?? 'Unnamed Trip'),
+              dateFrom: ValueNotifier<String?>(from.toIso8601String().split("T").first),
+              dateTo: ValueNotifier<String?>(to.toIso8601String().split("T").first),
+              expensesUsed: ValueNotifier<double>((trip['expensesUsed'] as num?)?.toDouble() ?? 0.0),
+              expensesLimit: ValueNotifier<double>((trip['expensesLimit'] as num?)?.toDouble() ?? 0.0),
+              items: ValueNotifier<List<String>>(List<String>.from(trip['items'] ?? [])),
+              fixedExpenses: ValueNotifier<List<Map<String, dynamic>>>(
+                fixedExpensesList.map<Map<String, dynamic>>((e) {
+                  return {
+                    'item': e['item'] ?? '',
+                    'price': (e['price'] as num?)?.toDouble() ?? 0.0,
+                  };
+                }).toList(),
+              ),
+              variableExpenses: ValueNotifier<List<Map<String, dynamic>>>(
+                variableExpensesList.map<Map<String, dynamic>>((e) {
+                  return {
+                    'item': e['item'] ?? '',
+                    'price': (e['price'] as num?)?.toDouble() ?? 0.0,
+                  };
+                }).toList(),
+              ),
+              itineraries: itineraries,  // Assign itineraries data here
+            );
+
+            newTripData.addTrip(newTrip);
+          } else {
+            print('Itineraries is not a List');
+          }
+        }
+      } catch (e) {
+        print(e);
+      }
+    }
+
+    tripData = newTripData;
+    tripData.notifyListeners();
+    notifyListeners();
   }
 
   void addTrip(Trip trip){

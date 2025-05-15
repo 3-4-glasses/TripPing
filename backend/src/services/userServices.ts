@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
+import { Request } from 'express';
 
 
 // Convert to express functions
@@ -32,13 +33,13 @@ async function registerUser(user_name: string, email: string, password: string):
 }
 
 
-async function verifyToken(tokenReq: any): Promise<{ uid: string; email: string, name: string } | null> {
+async function verifyToken(req: Request): Promise<{ uid: string; email: string; name: string } | null> {
   try {
-    const authHeader = tokenReq.headers.authorization;
+    const authHeader = req.headers.authorization;
     const token = authHeader?.split(' ')[1];
-
+    console.log(JSON.stringify(token));
     if (!token) {
-      console.log("No token provided");
+      console.log("Authorization header missing or malformed");
       return null;
     }
 
@@ -49,12 +50,13 @@ async function verifyToken(tokenReq: any): Promise<{ uid: string; email: string,
       uid: decodedToken.uid,
       email: decodedToken.email || '',
       name: decodedToken.name || ''
-    }; 
+    };
   } catch (error) {
     console.error('Error verifying token:', error);
     throw error; 
   }
 }
+
 // Initialize user in Firestore
 async function initUser(userId: string, userName: string): Promise<void> {
     try {
@@ -69,4 +71,23 @@ async function initUser(userId: string, userName: string): Promise<void> {
     }
 }
 
-export {initUser,registerUser,verifyToken};
+
+
+async function changeUserName(userId: string, username: string):Promise<boolean>{
+  console.log(userId);
+  console.log(username);
+    try{
+        const userRecord = await admin.auth().updateUser(userId, {
+            displayName: username,
+        });
+        const userRef = db.collection("users").doc(userId);
+        await userRef.set({name:username},{merge:true});
+        return true;
+    }catch(error){
+        console.log(`error on changeUsername, args userId ${userId} name ${username}`);
+        console.log(`error ${error}`);
+        throw error
+    }
+}
+
+export {initUser,registerUser,verifyToken, changeUserName};

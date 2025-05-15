@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:apacsolchallenge/pages/calendar.dart';
 import 'package:apacsolchallenge/pages/general_question.dart';
@@ -6,6 +8,7 @@ import '../data/global_trip_data.dart';
 import '../data/trip_data.dart';
 import 'package:provider/provider.dart';
 import '../data/global_user.dart';
+import 'package:http/http.dart' as http;
 
 class EventSelection extends StatelessWidget {
   const EventSelection({super.key});
@@ -133,11 +136,24 @@ class EventSelection extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 // Get the GlobalTripData instance using Provider
-                final globalTripData = Provider.of<GlobalTripData>(context, listen: false);
-                globalTripData.deleteTrip(tripId); // Delete the trip
-                Navigator.of(context).pop(true); // Close the dialog
+                final res = await http.delete(
+                    Uri.parse('https://backend-server-412321340776.us-west1.run.app/trip/delete'),
+                    headers: <String,String>{
+                      'Content-Type': 'application/json; charset=UTF-8',
+                    },
+                    body:jsonEncode(<String, dynamic>{
+                      'userId':UserSession.instance.uid,
+                      'tripId':tripId,
+                    })
+                );
+                if(res.statusCode==204){
+                  final globalTripData = Provider.of<GlobalTripData>(context, listen: false);
+                  globalTripData.deleteTrip(tripId); // Delete the trip
+                  Navigator.of(context).pop(true); // Close the dialog
+                  GlobalTripData.instance.notifyListeners();
+                }
               },
               child: const Text('Delete'),
             ),

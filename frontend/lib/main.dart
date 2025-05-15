@@ -1,16 +1,21 @@
+import 'package:apacsolchallenge/authenticationWindow.dart';
 import 'package:apacsolchallenge/pages/main_page.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'data/global_trip_data.dart';
+import 'data/global_trip_data.dart'; // Import the GlobalTripData
 
-void main() {
-  final globalTripData = GlobalTripData.instance;
-  globalTripData.initialize(); // Initialize trip data
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  GlobalTripData.instance.initialize();
 
   runApp(
-    MultiProvider( // Use MultiProvider to provide GlobalTripData
+    MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => globalTripData),
+        ChangeNotifierProvider(create: (_) => GlobalTripData.instance), // Provide GlobalTripData
       ],
       child: const MyApp(),
     ),
@@ -23,12 +28,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.cyan),
       ),
-      home: MainPage()
+      home: const AuthenticationWindow(),
     );
   }
 }

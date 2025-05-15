@@ -39,6 +39,7 @@ class Activity {
   String to;
   String title;
   Location? location; // Made Location nullable
+  String locationDetail;
   String details;
 
   Activity({
@@ -46,10 +47,11 @@ class Activity {
     required this.to,
     required this.title,
     this.location, // Location is optional
+    required this.locationDetail,
     required this.details,
   });
 
-  // Factory constructor to create an Activity object from a JSON map
+  // Factory constructor to create an Activity object from a JSN map
   factory Activity.fromJson(Map<String, dynamic> json) {
     return Activity(
       from: json['from'] ?? '',
@@ -57,7 +59,8 @@ class Activity {
       title: json['title'] ?? '',
       location: json['location'] != null
           ? Location.fromJson(json['location'])
-          : null, // Handle null location
+          : null, // Handle null location,
+      locationDetail: json['locationDetail'] ?? '',
       details: json['details'] ?? '',
     );
   }
@@ -69,6 +72,7 @@ class Activity {
       'to': to,
       'title': title,
       'location': location?.toJson(), // Use ?. to handle null
+      'locationDetail': locationDetail,
       'details': details,
     };
   }
@@ -76,10 +80,12 @@ class Activity {
 
 // Data class to represent a day's itinerary
 class Itinerary {
+  // String id;
   String date;
   List<Activity> activities;
 
   Itinerary({
+    // required this.id, TODO
     required this.date,
     required this.activities,
   });
@@ -90,6 +96,7 @@ class Itinerary {
     var activitiesList = json['activities'] as List? ?? []; //handles null
     //print("activitiesList: $activitiesList");
     return Itinerary(
+      // id: json['id'], TODO
       date: json['date'] ?? '',
       activities: activitiesList
           .map((activityJson) => Activity.fromJson(activityJson))
