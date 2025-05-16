@@ -83,9 +83,25 @@ class _ExpensesState extends State<Expenses> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Color(0xFFA0CDC3),
         title: const Text('Expenses'),
       ),
-      body: Padding(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+      child: SafeArea(
+        child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,6 +115,7 @@ class _ExpensesState extends State<Expenses> {
               margin: const EdgeInsets.symmetric(vertical: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
+                color: Color(0xFFF8F8FF),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.grey.shade300),
               ),
@@ -128,6 +145,7 @@ class _ExpensesState extends State<Expenses> {
               margin: const EdgeInsets.symmetric(vertical: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
+                color: Color(0xFFF8F8FF),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.grey.shade300),
               ),
@@ -156,6 +174,8 @@ class _ExpensesState extends State<Expenses> {
             _buildExpenseList(widget.trip.variableExpenses.value),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

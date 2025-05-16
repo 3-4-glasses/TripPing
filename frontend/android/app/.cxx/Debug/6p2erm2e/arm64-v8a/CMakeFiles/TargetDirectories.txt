@@ -1,0 +1,2 @@
+C:/Users/Ryanl/Documents/GitHub/TripPing/frontend/android/app/.cxx/Debug/6p2erm2e/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/Ryanl/Documents/GitHub/TripPing/frontend/android/app/.cxx/Debug/6p2erm2e/arm64-v8a/CMakeFiles/rebuild_cache.dir

@@ -62,50 +62,78 @@ class _AddExpensesState extends State<AddExpenses> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Color(0xFFA0CDC3),
         title: Text('Add Expenses')
       ), 
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                TextFormField(
-                  controller: _expenseNameController,
-                  decoration: InputDecoration(labelText: "Expense Name"),
-                  validator: (value) {
-                    if (value == null || value.isEmpty){
-                      return 'Please enter expense name';
-                    }
-                    return null; 
-                  },
+      body: Container (
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            ),
+          ),
+          child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    TextFormField(
+                      controller: _expenseNameController,
+                        decoration: InputDecoration(
+                          labelText: 'Expense Name',
+                          labelStyle: TextStyle(
+                            color: Colors.black,
+                          )
+                          ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty){
+                          return 'Please enter expense name';
+                        }
+                        return null; 
+                      },
+                    ),
+                    TextFormField(
+                      controller: _expenseAmountController,
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Total Expense',
+                          labelStyle: TextStyle(
+                            color: Colors.black,
+                          )
+                          ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter expense amount';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Invalid number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _addExpense,
+                      child: const Text('Add Expense'),
+                    ),
+                  ],
                 ),
-                TextFormField(
-                  controller: _expenseAmountController,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Total Expense'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter expense amount';
-                    }
-                    if (double.tryParse(value) == null) {
-                      return 'Invalid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _addExpense,
-                  child: const Text('Add Expense'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
-      )
+      ),
     );
   }
 }

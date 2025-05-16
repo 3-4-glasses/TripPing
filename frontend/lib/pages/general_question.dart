@@ -180,10 +180,26 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Color(0xFFA0CDC3),
         title: Text("Create a trip"),
         leading: IconButton(onPressed: _showSaveDiscardDialog, icon: Icon(Icons.arrow_back)),
       ),
-      body: SingleChildScrollView(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+      child: SafeArea(
+        child: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -192,13 +208,23 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
             children: <Widget>[
               TextFormField(
                 controller: _tripNameController,
-                decoration: InputDecoration(labelText: 'Trip name'),
+                decoration: InputDecoration(
+                  labelText: 'Trip name',
+                  labelStyle: TextStyle(
+                    color: Colors.black,
+                  )
+                  ),
                 onChanged: (_) => _checkIfAllFieldsFilled(),
               ),
               SizedBox(height: 16.0,),
               TextFormField(
                 controller: _destinationController,
-                decoration: InputDecoration(labelText: 'Destination'),
+                decoration: InputDecoration(
+                  labelText: 'Destination',
+                  labelStyle: TextStyle(
+                    color: Colors.black,
+                  )
+                  ),
                 onChanged: (_) => _checkIfAllFieldsFilled(),
               ),
               SizedBox(height: 16.0,),
@@ -208,7 +234,12 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
                     child: InkWell(
                       onTap: () => _selectDepartureDate(context),
                       child: InputDecorator(
-                        decoration: InputDecoration(labelText: 'Departure date'),
+                        decoration: InputDecoration(
+                          labelText: 'Departure Date',
+                          labelStyle: TextStyle(
+                            color: Colors.black,
+                          )
+                          ),
                         child: Text(_departureDate == null ? 'Select date' : DateFormat('yyyy-MM-dd').format(_departureDate!))
                       ),
                     ),
@@ -218,7 +249,12 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
                     child: InkWell(
                       onTap: () => _selectDepartureTime(context),
                       child: InputDecorator(
-                        decoration: InputDecoration(labelText: "Departure time"),
+                        decoration: InputDecoration(
+                          labelText: 'Departure Time',
+                          labelStyle: TextStyle(
+                            color: Colors.black,
+                          )
+                          ),
                         child: Text(_departureTime == null ? 'Select time' : _departureTime!.format(context)),
                       )
                     ),
@@ -232,7 +268,12 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
                     child: InkWell(
                       onTap: () => _selectReturnDate(context),
                       child: InputDecorator(
-                        decoration: InputDecoration(labelText: 'Return date'),
+                        decoration: InputDecoration(
+                          labelText: 'Return Date',
+                          labelStyle: TextStyle(
+                            color: Colors.black,
+                          )
+                          ),
                         child: Text(_returnDate == null ? 'Select date' : DateFormat('yyyy-MM-dd').format(_returnDate!))
                       ),
                     ),
@@ -242,7 +283,12 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
                     child: InkWell(
                       onTap: () => _selectReturnTime(context),
                       child: InputDecorator(
-                        decoration: InputDecoration(labelText: "Return time"),
+                        decoration: InputDecoration(
+                          labelText: 'Return Time',
+                          labelStyle: TextStyle(
+                            color: Colors.black,
+                          )
+                          ),
                         child: Text(_returnTime == null ? 'Select time' : _returnTime!.format(context)),
                       )
                     ),
@@ -280,8 +326,11 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
               TextFormField(
                 controller: _transportationController,
                 decoration: InputDecoration(
-                  labelText: 'Preferred transportation'
-                ),
+                  labelText: 'Preferred Transportation',
+                  labelStyle: TextStyle(
+                    color: Colors.black,
+                  )
+                  ),
                 onChanged: (_) => _checkIfAllFieldsFilled(),
               ),
               SizedBox(height: 32.0),
@@ -292,7 +341,9 @@ class _GeneralQuestionState extends State<GeneralQuestion> {
             ],
           )
         ),
-      )
+      ),
+      ),
+      ),
     );
   }
 }

@@ -150,9 +150,25 @@ class _CalendarState extends State<Calendar> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Color(0xFFA0CDC3),
         title: const Text("Trip Calendar"),
       ),
-      body: Column(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+      child: SafeArea(
+        child: Column(
         children: [
           TableCalendar(
             firstDay: DateTime.utc(2010, 1, 1),
@@ -271,6 +287,8 @@ class _CalendarState extends State<Calendar> {
             ),
           ),
         ],
+      ),
+      ),
       ),
     );
   }
