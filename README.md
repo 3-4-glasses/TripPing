@@ -5,7 +5,11 @@
 **TripPing**
 =
 #### Submission for APAC Solution Challenge 2025
+#### Team: 16 Eyes
+#### From: Indonesia [Binus International, Jakarta]
+
 #
+
 
 Travel planning is a pain—we fix that. Our app uses AI to turn messy ideas into smart, personalized itineraries in seconds. Edit your trip with a built-in calendar, and get tailored activity picks via Google Maps and Gemini AI. Less stress, more adventure.
 
