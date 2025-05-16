@@ -43,6 +43,7 @@ frontend/app.*.map.json
 frontend/android/app/debug
 frontend/android/app/profile
 frontend/android/app/release
+frontend/android/app/.cxx
 
 # Node.js related
 backend/node_modules/
