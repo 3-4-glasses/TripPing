@@ -11,7 +11,7 @@
 #
 
 
-Travel planning is a pain—we fix that. Our app uses AI to turn messy ideas into smart, personalized itineraries in seconds. Edit your trip with a built-in calendar, and get tailored activity picks via Google Maps and Gemini AI. Less stress, more adventure.
+Travel planning is a pain—we fix that. Our app uses AI to turn messy ideas into smart, personalized itineraries in seconds, with a special focus on **local culture**. Edit your trip with a built-in calendar, and get tailored activity picks via Google Maps and Gemini AI. Less stress, more adventure.
 
 
 
@@ -34,6 +34,8 @@ Travel planning is a pain—we fix that. Our app uses AI to turn messy ideas int
 **Estimated time**
 - Get realistic travel time estimates between locations and activities, so your itinerary stays practical and stress-free.
 
+**Local culture focused✨**
+- It isnt just about visiting tourist attractions, it is also about immersing yourself in local culture. Using Gemini AI, we prioritize local culture alongside popular destination to give you the best travel experience.
 
 
   
