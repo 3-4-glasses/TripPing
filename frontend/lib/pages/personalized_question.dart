@@ -185,13 +185,29 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         title: const Text('Personalization'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: _goBackToBasicQuestionnaire,
         ),
       ),
-      body: SingleChildScrollView(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+      child: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -226,7 +242,7 @@ class _PersonalizedQuestionState extends State<PersonalizedQuestion> {
             ),
           ],
         ),
-      ),
+      ),),),
     );
   }
 }

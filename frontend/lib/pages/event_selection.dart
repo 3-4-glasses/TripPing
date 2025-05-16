@@ -20,7 +20,20 @@ class EventSelection extends StatelessWidget {
       builder: (context, globalTripData, child) {
         final List<Trip> availableTrips = globalTripData.tripData.trips.value;
         return Scaffold(
-          body: SafeArea(
+          body: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          child: SafeArea(
             child: CustomScrollView(
               slivers: [
                 SliverAppBar(
@@ -44,6 +57,7 @@ class EventSelection extends StatelessWidget {
                 ),
               ],
             ),
+          ),
           ),
           bottomNavigationBar: _buildBottomNavigationBar(context),
         );

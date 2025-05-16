@@ -118,6 +118,8 @@ class _RemindersPageState extends State<RemindersPage> {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         title: const Text('Reminders'),
         actions: [
           // No Clear Completed.

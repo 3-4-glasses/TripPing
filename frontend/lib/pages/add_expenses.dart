@@ -86,9 +86,25 @@ class _AddExpensesState extends State<AddExpenses> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Color(0xFFA0CDC3),
         title: Text('Add Expenses')
       ), 
-      body: Padding(
+      body: Container (
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            ),
+          ),
+          child: SafeArea(
+          child: Padding(
         padding: EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -124,12 +140,14 @@ class _AddExpensesState extends State<AddExpenses> {
                 ElevatedButton(
                   onPressed: _addExpense,
                   child: const Text('Add Expense'),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      )
+      ),
     );
   }
 }

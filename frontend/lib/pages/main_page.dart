@@ -1103,6 +1103,7 @@ class _MainPageState extends State<MainPage> {
         Container(
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
+            color: Color(0xFFF8F8ff),
             border: Border.all(color: Colors.grey[300]!),
             borderRadius: BorderRadius.circular(8)
           ),
@@ -1264,6 +1265,7 @@ class _MainPageState extends State<MainPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
+                color: Color(0xFFF8F8ff),
                 border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8)),
             child: Column(
@@ -1488,6 +1490,8 @@ class _MainPageState extends State<MainPage> {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         title: Text(_getGreeting()),
         actions: [
           IconButton(
@@ -1527,7 +1531,21 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
 
-      body: SingleChildScrollView(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFA0CDC3),
+              Color(0xFFA0E9F2),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
           child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(children: [
@@ -1536,7 +1554,12 @@ class _MainPageState extends State<MainPage> {
                 _buildEstimatedTime(relevantActivities, lastActivityFromPreviousDay),
                 const SizedBox(height: 16),
                 _buildExpensesComplete(closestTrip)
-              ]))),
+                  ]
+                )
+              )
+            ),
+          ),
+        ),
       bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
